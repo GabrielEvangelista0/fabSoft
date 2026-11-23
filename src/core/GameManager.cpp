@@ -132,6 +132,7 @@ void GameManager::StartGame()
     collisionFlash = 0.0F;
     isNewRecord = false;
     wasJumping = false;
+    footstepTimer = 0.0F;
     state = GameState::Playing;
 }
 
@@ -142,8 +143,28 @@ void GameManager::UpdatePlaying(float deltaTime)
     if (!wasJumping && player.IsJumping())
     {
         audio.PlayJump();
+        // Efeito de poeira no impulso do salto
+        SpawnParticles({player.GetLaneX(), 0.06F, 0.0F}, Fade(LIGHTGRAY, 0.7F), 6, 0.08F);
     }
     wasJumping = player.IsJumping();
+
+    // Partículas de poeira no solo durante a corrida
+    if (!player.IsJumping() && !player.IsCrouching())
+    {
+        footstepTimer += deltaTime;
+        if (footstepTimer >= 0.14F)
+        {
+            footstepTimer = 0.0F;
+            const float footOffset = (std::sin(static_cast<float>(GetTime()) * 14.0F) > 0.0F) ? -0.14F : 0.14F;
+            SpawnParticles({player.GetLaneX() + footOffset, 0.06F, -0.12F}, Fade(LIGHTGRAY, 0.5F), 2, 0.05F);
+        }
+    }
+
+    // Partículas de suor caso o personagem esteja acima do peso
+    if (player.GetWeightState() != WeightState::Normal && GetRandomValue(0, 100) < 15)
+    {
+        SpawnParticles({player.GetLaneX() + static_cast<float>(GetRandomValue(-2, 2)) * 0.08F, 1.4F, 0.0F}, SKYBLUE, 1, 0.05F);
+    }
 
     const float distance = score.GetDistance();
     const float weightSpeedMultiplier = (player.GetWeightState() == WeightState::Normal) ? 1.0F
@@ -177,19 +198,20 @@ void GameManager::UpdatePlaying(float deltaTime)
                 score.AddFoodBonus(food->GetScoreBonus());
                 score.RegisterGoodFood();
                 audio.PlayCollectGood();
-                SpawnParticles(position);
+                SpawnParticles(position, Color{46, 204, 113, 255}, 16, 0.12F);
                 SpawnPopup(
                     TextFormat("+%d pts  -%.0f kg (%s)", food->GetScoreBonus(), food->GetWeightValue(), food->GetDisplayName()),
-                    LIME);
+                    Color{46, 204, 113, 255});
             }
             else
             {
                 score.RegisterBadFood();
                 audio.PlayCollectBad();
                 collisionFlash = Settings::COLLISION_FLASH_DURATION;
+                SpawnParticles(position, Color{231, 76, 60, 255}, 14, 0.12F);
                 SpawnPopup(
                     TextFormat("+%.0f kg! (%s)", food->GetWeightValue(), food->GetDisplayName()),
-                    RED);
+                    Color{231, 76, 60, 255});
             }
 
             std::cout << "[Colisao] Item: " << food->GetDisplayName()
@@ -230,20 +252,26 @@ void GameManager::UpdateParticles(float deltaTime)
         particles.end());
 }
 
-void GameManager::SpawnParticles(Vector3 position)
+void GameManager::SpawnParticles(Vector3 position, Color color, int count, float size)
 {
-    for (int i = 0; i < 14; ++i)
+    for (int i = 0; i < count; ++i)
     {
-        if (particles.size() >= 64)
+        if (particles.size() >= 128)
         {
             break;
         }
 
-        const float horizontal = static_cast<float>(GetRandomValue(-10, 10)) * 0.25F;
+        const float horizontal = static_cast<float>(GetRandomValue(-10, 10)) * 0.22F;
+        const float vertical = static_cast<float>(GetRandomValue(3, 9)) * 0.40F;
+        const float depth = static_cast<float>(GetRandomValue(-10, 10)) * 0.18F;
+
         particles.push_back({
             position,
-            {horizontal, static_cast<float>(GetRandomValue(3, 9)) * 0.45F, static_cast<float>(GetRandomValue(-10, 10)) * 0.2F},
-            Settings::PARTICLE_LIFETIME
+            {horizontal, vertical, depth},
+            Settings::PARTICLE_LIFETIME,
+            Settings::PARTICLE_LIFETIME,
+            color,
+            size
         });
     }
 }
@@ -252,8 +280,8 @@ void GameManager::DrawParticles() const
 {
     for (const Particle& particle : particles)
     {
-        const float alpha = std::clamp(particle.lifetime / Settings::PARTICLE_LIFETIME, 0.0F, 1.0F);
-        DrawSphere(particle.position, 0.10F, Fade(LIME, alpha));
+        const float alpha = std::clamp(particle.lifetime / particle.maxLifetime, 0.0F, 1.0F);
+        DrawSphere(particle.position, particle.size, Fade(particle.color, alpha));
     }
 }
 
@@ -289,13 +317,6 @@ void GameManager::DrawPopups() const
     for (const FloatingText& popup : popups)
     {
         const float alpha = std::clamp(popup.lifetime / 1.1F, 0.0F, 1.0F);
-        const int fontSize = 22;
-        const int textW = MeasureText(popup.text.c_str(), fontSize);
-        const int drawX = static_cast<int>(popup.x) - (textW / 2);
-        const int drawY = static_cast<int>(popup.y);
-
-        // Sombra preta para alto contraste
-        DrawText(popup.text.c_str(), drawX + 2, drawY + 2, fontSize, Fade(BLACK, alpha * 0.8F));
-        DrawText(popup.text.c_str(), drawX, drawY, fontSize, Fade(popup.color, alpha));
+        DrawFloatingMessage(popup.text.c_str(), popup.x, popup.y, 22.0F, popup.color, alpha);
     }
 }

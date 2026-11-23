@@ -129,7 +129,7 @@ void FoodSpawner::SpawnFood(float badFoodChance)
 
     food->SetAltitude(altitudeType);
     food->SetPosition({
-        static_cast<float>(lane) * Settings::LANE_WIDTH,
+        -static_cast<float>(lane) * Settings::LANE_WIDTH,
         altitudeY,
         48.0F
     });

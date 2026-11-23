@@ -39,6 +39,9 @@ private:
         Vector3 position{};
         Vector3 velocity{};
         float lifetime = 0.0F;
+        float maxLifetime = 0.55F;
+        Color color = LIME;
+        float size = 0.10F;
     };
 
     struct FloatingText
@@ -67,11 +70,12 @@ private:
     float collisionFlash = 0.0F;
     bool isNewRecord = false;
     bool wasJumping = false;
+    float footstepTimer = 0.0F;
 
     void StartGame();
     void UpdatePlaying(float deltaTime);
     void UpdateParticles(float deltaTime);
-    void SpawnParticles(Vector3 position);
+    void SpawnParticles(Vector3 position, Color color = LIME, int count = 14, float size = 0.10F);
     void DrawParticles() const;
 
     void UpdatePopups(float deltaTime);

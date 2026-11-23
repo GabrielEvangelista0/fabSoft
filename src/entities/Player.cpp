@@ -34,13 +34,14 @@ void Player::Update(float deltaTime)
         targetLane = std::min(1, targetLane + 1);
     }
 
-    if ((IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_UP)) && jumpHeight <= 0.0F)
+    if ((IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) && jumpHeight <= 0.0F)
     {
         verticalSpeed = Settings::PLAYER_JUMP_SPEED;
     }
 
     crouching = IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_S);
-    const float targetX = static_cast<float>(targetLane) * Settings::LANE_WIDTH;
+    // Na visualização em perspectiva voltada para +Z, +X corresponde à esquerda da tela
+    const float targetX = static_cast<float>(-targetLane) * Settings::LANE_WIDTH;
     const float laneChangeAmount = std::min(1.0F, Settings::PLAYER_LANE_CHANGE_SPEED * deltaTime);
     laneX += (targetX - laneX) * laneChangeAmount;
 

@@ -42,6 +42,13 @@ else()
     target_compile_options(FujaDasCalorias PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
+# Copia automaticamente a pasta assets (fontes, etc.) para a pasta de saída do executável
+add_custom_command(TARGET FujaDasCalorias POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets"
+        "$<TARGET_FILE_DIR:FujaDasCalorias>/assets"
+)
+
 # Suíte de Testes Unitários Automatizados
 enable_testing()
 

@@ -14,7 +14,10 @@ struct HUDStats
     int badFoodCount = 0;
 };
 
+void InitHUD();
+void CloseHUD();
 void DrawHUD(const Player& player, const HUDStats& stats);
 void DrawMenu(int highScore, bool isMuted);
 void DrawGameOver(const HUDStats& stats);
 void DrawPause();
+void DrawFloatingMessage(const char* text, float x, float y, float size, Color color, float alpha);
