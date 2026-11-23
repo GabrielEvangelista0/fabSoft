@@ -39,7 +39,7 @@ O personagem corre automaticamente por uma pista de 3 raias infinitas. O objetiv
 | Tecla | Ação |
 |---|---|
 | `A` / `D` ou `←` / `→` | Trocar de raia (esquerda, centro, direita) com interpolação suave |
-| `Espaço` ou `↑` | Pular com física e gravidade simulada |
+| `W` / `Espaço` ou `↑` | Pular com física e gravidade simulada |
 | `S` ou `↓` | Agachar (reduz hitbox e escala vertical) |
 | `P` | Pausar / Retomar a partida |
 | `M` | Silenciar / Ativar efeitos sonoros |
