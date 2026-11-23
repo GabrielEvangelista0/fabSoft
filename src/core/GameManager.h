@@ -38,39 +38,45 @@ private:
     {
         Vector3 position{};
         Vector3 velocity{};
-        float lifetime = 0.0F;
-        float maxLifetime = 0.55F;
-        Color color = LIME;
-        float size = 0.10F;
+        float   lifetime    = 0.0F;
+        float   maxLifetime = 0.55F;
+        Color   color       = LIME;
+        float   size        = 0.10F;
     };
 
     struct FloatingText
     {
         std::string text;
-        float x = 0.0F;
-        float y = 0.0F;
+        float x        = 0.0F;
+        float y        = 0.0F;
         float lifetime = 0.0F;
-        Color color = WHITE;
+        Color color    = WHITE;
     };
 
-    GameState state = GameState::Menu;
-    Player player;
+    GameState    state = GameState::Menu;
+    Player       player;
     TrackSpawner track;
-    FoodSpawner foodSpawner;
+    FoodSpawner  foodSpawner;
     DifficultyManager difficulty;
-    ScoreSystem score;
-    SaveSystem saveSystem;
+    ScoreSystem  score;
+    SaveSystem   saveSystem;
     AudioManager audio;
 
     Camera3D camera{};
-    std::vector<Particle> particles;
+    std::vector<Particle>    particles;
     std::vector<FloatingText> popups;
 
-    int highScore = 0;
+    int   highScore      = 0;
     float collisionFlash = 0.0F;
-    bool isNewRecord = false;
-    bool wasJumping = false;
-    float footstepTimer = 0.0F;
+    bool  isNewRecord    = false;
+    bool  wasJumping     = false;
+    float footstepTimer  = 0.0F;
+
+    // Timer do bloco de COMANDOS RAPIDOS (some após 6 s)
+    float commandsTimer = 6.0F;
+
+    // Peso exibido com interpolação suave (juice)
+    mutable float displayWeight = 20.0F;
 
     void StartGame();
     void UpdatePlaying(float deltaTime);

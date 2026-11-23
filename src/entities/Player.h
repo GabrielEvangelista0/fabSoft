@@ -14,7 +14,7 @@ enum class WeightState
  *
  * Gerencia posicionamento 3D nas 3 raias, movimentação com interpolação suave (Lerp),
  * física de salto com gravidade simulada, agachamento e alteração de forma/escala
- * decorrente do peso acumulado.
+ * decorrente do peso acumulado. Inclui squash & stretch e inclinação lateral.
  */
 class Player
 {
@@ -36,14 +36,19 @@ public:
     bool IsCrouching() const;
 
 private:
-    int targetLane = 0;
-    float laneX = 0.0F;
-    float jumpHeight = 0.0F;
+    int   targetLane    = 0;
+    float laneX         = 0.0F;
+    float prevLaneX     = 0.0F;    // Para calcular velocidade lateral
+    float jumpHeight    = 0.0F;
     float verticalSpeed = 0.0F;
-    float runTime = 0.0F;
-    float weight = 20.0F; // Começa saudável (20 kg)
-    bool crouching = false;
+    float runTime       = 0.0F;
+    float weight        = 20.0F;   // Começa saudável (20 kg)
+    bool  crouching     = false;
     WeightState weightState = WeightState::Normal;
+
+    // Game juice: animação visual
+    float leanAngle   = 0.0F;    // Inclinação lateral (graus) ao trocar de raia
+    float stretchTimer = 0.0F;   // Timer do efeito squash & stretch
 
     void UpdateWeightState();
 };

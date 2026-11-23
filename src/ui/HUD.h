@@ -4,14 +4,16 @@
 
 struct HUDStats
 {
-    int score = 0;
-    float distance = 0.0F;
-    int highScore = 0;
+    int   score         = 0;
+    float distance      = 0.0F;
+    int   highScore     = 0;
     float collisionFlash = 0.0F;
-    bool isMuted = false;
-    bool isNewRecord = false;
-    int goodFoodCount = 0;
-    int badFoodCount = 0;
+    bool  isMuted       = false;
+    bool  isNewRecord   = false;
+    int   goodFoodCount = 0;
+    int   badFoodCount  = 0;
+    float commandsAlpha = 1.0F;    // 0 = oculto, 1 = visível
+    float displayWeight = 20.0F;   // Peso com interpolação suave para a barra
 };
 
 void InitHUD();

@@ -10,19 +10,18 @@ GameManager::GameManager()
     : highScore(saveSystem.LoadHighScore())
 {
     InitializeTrack(track);
-    camera.position = {0.0F, 5.2F, -9.5F};
-    camera.target = {0.0F, 1.2F, 4.0F};
-    camera.up = {0.0F, 1.0F, 0.0F};
-    camera.fovy = 55.0F;
+    camera.position   = {0.0F, 5.2F, -9.5F};
+    camera.target     = {0.0F, 1.2F,  4.0F};
+    camera.up         = {0.0F, 1.0F,  0.0F};
+    camera.fovy       = 55.0F;
     camera.projection = CAMERA_PERSPECTIVE;
 
-    particles.reserve(64);
+    particles.reserve(128);
     popups.reserve(16);
 }
 
 void GameManager::Update(float deltaTime)
 {
-    // Tecla global para alternar áudio (Mudo / Ativado)
     if (IsKeyPressed(KEY_M))
     {
         audio.ToggleMute();
@@ -79,17 +78,24 @@ void GameManager::Update(float deltaTime)
 void GameManager::Draw() const
 {
     BeginDrawing();
-    ClearBackground(Color{135, 206, 235, 255}); // Céu azul
+
+    // Céu gradiente: azul celeste no topo → laranja-âmbar no horizonte
+    DrawRectangleGradientV(
+        0, 0, Settings::WINDOW_WIDTH, Settings::WINDOW_HEIGHT,
+        Color{135, 185, 230, 255},   // Azul suave/manhã no topo
+        Color{235, 190, 130, 255});  // Âmbar quente no horizonte
 
     HUDStats stats{};
-    stats.score = score.GetScore();
-    stats.distance = score.GetDistance();
-    stats.highScore = highScore;
+    stats.score          = score.GetScore();
+    stats.distance       = score.GetDistance();
+    stats.highScore      = highScore;
     stats.collisionFlash = collisionFlash;
-    stats.isMuted = audio.IsMuted();
-    stats.isNewRecord = isNewRecord;
-    stats.goodFoodCount = score.GetGoodFoodCount();
-    stats.badFoodCount = score.GetBadFoodCount();
+    stats.isMuted        = audio.IsMuted();
+    stats.isNewRecord    = isNewRecord;
+    stats.goodFoodCount  = score.GetGoodFoodCount();
+    stats.badFoodCount   = score.GetBadFoodCount();
+    stats.commandsAlpha  = std::clamp(commandsTimer / 1.5F, 0.0F, 1.0F);
+    stats.displayWeight  = displayWeight;
 
     if (state == GameState::Playing || state == GameState::Paused)
     {
@@ -99,6 +105,24 @@ void GameManager::Draw() const
         DrawParticles();
         player.Draw();
         EndMode3D();
+
+        // --- NÉVOA ATMOSFÉRICA NO HORIZONTE (pós-3D, pré-HUD) ---
+        // Gradiente de baixo para cima: haze âmbar/azul do horizonte
+        DrawRectangleGradientV(
+            0,
+            Settings::WINDOW_HEIGHT / 3,
+            Settings::WINDOW_WIDTH,
+            Settings::WINDOW_HEIGHT / 5,
+            Fade(Color{210, 190, 160, 255}, 0.0F),
+            Fade(Color{210, 190, 160, 255}, 0.0F));
+        // Haze leve no ponto de fuga (centro vertical ~40%)
+        DrawRectangleGradientV(
+            0,
+            Settings::WINDOW_HEIGHT / 4,
+            Settings::WINDOW_WIDTH,
+            Settings::WINDOW_HEIGHT / 6,
+            Fade(Color{220, 200, 170, 255}, 0.0F),
+            Fade(Color{220, 200, 170, 255}, 0.22F));
 
         DrawHUD(player, stats);
         DrawPopups();
@@ -130,25 +154,27 @@ void GameManager::StartGame()
     particles.clear();
     popups.clear();
     collisionFlash = 0.0F;
-    isNewRecord = false;
-    wasJumping = false;
-    footstepTimer = 0.0F;
-    state = GameState::Playing;
+    isNewRecord    = false;
+    wasJumping     = false;
+    footstepTimer  = 0.0F;
+    commandsTimer  = 6.0F;      // Reinicia o timer dos COMANDOS RAPIDOS
+    displayWeight  = 20.0F;
+    state          = GameState::Playing;
 }
 
 void GameManager::UpdatePlaying(float deltaTime)
 {
-    // Detecta início do pulo para disparo de som
     player.Update(deltaTime);
+
     if (!wasJumping && player.IsJumping())
     {
         audio.PlayJump();
-        // Efeito de poeira no impulso do salto
-        SpawnParticles({player.GetLaneX(), 0.06F, 0.0F}, Fade(LIGHTGRAY, 0.7F), 6, 0.08F);
+        // Poeira no impulso do salto — 3 partículas cinza leve
+        SpawnParticles({player.GetLaneX(), 0.06F, 0.0F}, Fade(Color{200, 195, 185, 255}, 0.8F), 4, 0.07F);
     }
     wasJumping = player.IsJumping();
 
-    // Partículas de poeira no solo durante a corrida
+    // Partículas de poeira durante a corrida (passo a passo)
     if (!player.IsJumping() && !player.IsCrouching())
     {
         footstepTimer += deltaTime;
@@ -156,14 +182,22 @@ void GameManager::UpdatePlaying(float deltaTime)
         {
             footstepTimer = 0.0F;
             const float footOffset = (std::sin(static_cast<float>(GetTime()) * 14.0F) > 0.0F) ? -0.14F : 0.14F;
-            SpawnParticles({player.GetLaneX() + footOffset, 0.06F, -0.12F}, Fade(LIGHTGRAY, 0.5F), 2, 0.05F);
+            SpawnParticles({player.GetLaneX() + footOffset, 0.06F, -0.12F}, Fade(Color{195, 185, 170, 255}, 0.55F), 3, 0.045F);
         }
     }
 
-    // Partículas de suor caso o personagem esteja acima do peso
+    // Partículas de suor se acima do peso
     if (player.GetWeightState() != WeightState::Normal && GetRandomValue(0, 100) < 15)
     {
-        SpawnParticles({player.GetLaneX() + static_cast<float>(GetRandomValue(-2, 2)) * 0.08F, 1.4F, 0.0F}, SKYBLUE, 1, 0.05F);
+        SpawnParticles(
+            {player.GetLaneX() + static_cast<float>(GetRandomValue(-2, 2)) * 0.08F, 1.4F, 0.0F},
+            Color{140, 190, 230, 255}, 1, 0.05F);
+    }
+
+    // Decaimento do timer dos COMANDOS RAPIDOS
+    if (commandsTimer > 0.0F)
+    {
+        commandsTimer -= deltaTime;
     }
 
     const float distance = score.GetDistance();
@@ -178,17 +212,21 @@ void GameManager::UpdatePlaying(float deltaTime)
     UpdatePopups(deltaTime);
     collisionFlash = std::max(0.0F, collisionFlash - deltaTime);
 
-    // Câmera acompanha suavemente o deslocamento lateral do jogador
-    camera.position.x = player.GetLaneX() * 0.35F;
-    camera.target.x = player.GetLaneX() * 0.35F;
+    // Peso exibido com lerp suave (juice da barra de vida)
+    const float actualWeight = player.GetWeight();
+    displayWeight += (actualWeight - displayWeight) * std::min(1.0F, 5.0F * deltaTime);
 
-    // Detecção e tratamento de colisões com os alimentos
+    // Câmera segue suavemente o jogador lateralmente
+    camera.position.x = player.GetLaneX() * 0.35F;
+    camera.target.x   = player.GetLaneX() * 0.35F;
+
+    // Colisões com alimentos
     for (const std::unique_ptr<Food>& food : foodSpawner.GetFoods())
     {
         if (food->IsActive() && CheckCollisionBoxes(player.GetBoundingBox(), food->GetBoundingBox()))
         {
             const Vector3 position = food->GetPosition();
-            const bool isGoodFood = (food->GetType() == FoodType::Good);
+            const bool isGoodFood  = (food->GetType() == FoodType::Good);
 
             food->ApplyTo(player);
             food->SetActive(false);
@@ -198,20 +236,30 @@ void GameManager::UpdatePlaying(float deltaTime)
                 score.AddFoodBonus(food->GetScoreBonus());
                 score.RegisterGoodFood();
                 audio.PlayCollectGood();
-                SpawnParticles(position, Color{46, 204, 113, 255}, 16, 0.12F);
+
+                // Partículas de coleta boa: sparkles verdes, amarelas e brancas
+                SpawnParticles(position, Color{ 60, 220,  90, 255}, 10, 0.10F);
+                SpawnParticles(position, Color{255, 240, 100, 255},  4, 0.07F);
+                SpawnParticles(position, Color{240, 255, 240, 255},  3, 0.06F);
+
                 SpawnPopup(
                     TextFormat("+%d pts  -%.0f kg (%s)", food->GetScoreBonus(), food->GetWeightValue(), food->GetDisplayName()),
-                    Color{46, 204, 113, 255});
+                    Color{46, 220, 110, 255});
             }
             else
             {
                 score.RegisterBadFood();
                 audio.PlayCollectBad();
                 collisionFlash = Settings::COLLISION_FLASH_DURATION;
-                SpawnParticles(position, Color{231, 76, 60, 255}, 14, 0.12F);
+
+                // Partículas de dano: vermelho + laranja (onda de impacto)
+                SpawnParticles(position, Color{240,  70,  50, 255}, 10, 0.11F);
+                SpawnParticles(position, Color{255, 160,  40, 255},  5, 0.08F);
+                SpawnParticles(position, Color{100,  20,  10, 255},  3, 0.07F);
+
                 SpawnPopup(
                     TextFormat("+%.0f kg! (%s)", food->GetWeightValue(), food->GetDisplayName()),
-                    Color{231, 76, 60, 255});
+                    Color{235, 70, 50, 255});
             }
 
             std::cout << "[Colisao] Item: " << food->GetDisplayName()
@@ -219,14 +267,13 @@ void GameManager::UpdatePlaying(float deltaTime)
         }
     }
 
-    // Verificação de Condição de Fim de Jogo (Peso Máximo Atingido)
     if (player.IsGameOver())
     {
         audio.PlayGameOver();
         if (score.GetScore() > highScore)
         {
-            highScore = score.GetScore();
-            isNewRecord = true;
+            highScore    = score.GetScore();
+            isNewRecord  = true;
             saveSystem.SaveHighScore(highScore);
         }
         state = GameState::GameOver;
@@ -241,7 +288,7 @@ void GameManager::UpdateParticles(float deltaTime)
         particle.position.y += particle.velocity.y * deltaTime;
         particle.position.z += particle.velocity.z * deltaTime;
         particle.velocity.y -= Settings::GRAVITY * deltaTime * 0.35F;
-        particle.lifetime -= deltaTime;
+        particle.lifetime   -= deltaTime;
     }
 
     particles.erase(
@@ -256,14 +303,14 @@ void GameManager::SpawnParticles(Vector3 position, Color color, int count, float
 {
     for (int i = 0; i < count; ++i)
     {
-        if (particles.size() >= 128)
+        if (particles.size() >= 192)
         {
             break;
         }
 
         const float horizontal = static_cast<float>(GetRandomValue(-10, 10)) * 0.22F;
-        const float vertical = static_cast<float>(GetRandomValue(3, 9)) * 0.40F;
-        const float depth = static_cast<float>(GetRandomValue(-10, 10)) * 0.18F;
+        const float vertical   = static_cast<float>(GetRandomValue(3, 9))  * 0.40F;
+        const float depth      = static_cast<float>(GetRandomValue(-10, 10)) * 0.18F;
 
         particles.push_back({
             position,
@@ -289,7 +336,7 @@ void GameManager::UpdatePopups(float deltaTime)
 {
     for (FloatingText& popup : popups)
     {
-        popup.y -= 45.0F * deltaTime;
+        popup.y       -= 50.0F * deltaTime;
         popup.lifetime -= deltaTime;
     }
 
@@ -306,8 +353,8 @@ void GameManager::SpawnPopup(const char* text, Color color)
     popups.push_back({
         std::string(text),
         static_cast<float>(Settings::WINDOW_WIDTH) * 0.5F,
-        static_cast<float>(Settings::WINDOW_HEIGHT) * 0.45F,
-        1.1F,
+        static_cast<float>(Settings::WINDOW_HEIGHT) * 0.42F,
+        1.2F,
         color
     });
 }
@@ -316,7 +363,8 @@ void GameManager::DrawPopups() const
 {
     for (const FloatingText& popup : popups)
     {
-        const float alpha = std::clamp(popup.lifetime / 1.1F, 0.0F, 1.0F);
-        DrawFloatingMessage(popup.text.c_str(), popup.x, popup.y, 22.0F, popup.color, alpha);
+        const float alpha = std::clamp(popup.lifetime / 1.2F, 0.0F, 1.0F);
+        // Texto principal maior com sombra forte
+        DrawFloatingMessage(popup.text.c_str(), popup.x, popup.y, 26.0F, popup.color, alpha);
     }
 }

@@ -14,13 +14,20 @@ Color GetWeightBarColor(float weight)
 {
     if (weight <= 40.0F)
     {
-        return Color{46, 204, 113, 255};  // Verde esmeralda vibrante
+        return Color{46, 204, 113, 255};   // Verde esmeralda
     }
     if (weight <= 70.0F)
     {
-        return Color{241, 196, 15, 255};  // Amarelo sol
+        return Color{241, 196, 15, 255};   // Amarelo sol
     }
-    return Color{231, 76, 60, 255};       // Vermelho perigo intenso
+    return Color{231, 76, 60, 255};        // Vermelho perigo
+}
+
+const char* GetWeightIcon(float weight)
+{
+    if (weight <= 40.0F) return "[FIT]";
+    if (weight <= 70.0F) return "[!]";
+    return "[!!]";
 }
 
 void DrawTextCustom(const char* text, float x, float y, float fontSize, Color color, float spacing = 1.0F)
@@ -49,11 +56,10 @@ void DrawCenteredTextCustom(const char* text, float y, float fontSize, Color col
     const float x = (static_cast<float>(Settings::WINDOW_WIDTH) - width) * 0.5F;
     DrawTextCustom(text, x, y, fontSize, color, spacing);
 }
-}
+} // namespace
 
 void InitHUD()
 {
-    // Tenta carregar Arial / Arial Bold local ou do sistema para alta legibilidade
     const char* fontCandidates[] = {
         "assets/fonts/arialbd.ttf",
         "assets/fonts/arial.ttf",
@@ -97,77 +103,122 @@ void DrawFloatingMessage(const char* text, float x, float y, float size, Color c
         textW = static_cast<float>(MeasureText(text, static_cast<int>(size)));
     }
 
-    const float drawX = x - (textW * 0.5F);
+    const float drawX    = x - (textW * 0.5F);
+    const float padding  = 6.0F;
 
-    // Sombra do texto para contraste impecável
-    DrawTextCustom(text, drawX + 2.0F, y + 2.0F, size, Fade(BLACK, alpha * 0.85F));
-    DrawTextCustom(text, drawX, y, size, Fade(color, alpha));
+    // Pílula de fundo para legibilidade máxima
+    DrawRectangle(
+        static_cast<int>(drawX - padding),
+        static_cast<int>(y - padding * 0.5F),
+        static_cast<int>(textW + padding * 2.0F),
+        static_cast<int>(size + padding),
+        Fade(Color{10, 10, 15, 255}, alpha * 0.72F));
+
+    // Sombra forte + texto principal
+    DrawTextCustom(text, drawX + 2.5F, y + 2.5F, size, Fade(BLACK,  alpha * 0.90F));
+    DrawTextCustom(text, drawX,         y,         size, Fade(color,  alpha));
 }
 
 void DrawHUD(const Player& player, const HUDStats& stats)
 {
-    // Painel superior semitransparente moderno (Glassmorphism)
-    DrawRectangle(0, 0, Settings::WINDOW_WIDTH, 126, Fade(Color{18, 24, 38, 255}, 0.92F));
-    DrawRectangle(0, 124, Settings::WINDOW_WIDTH, 2, Color{52, 152, 219, 255});
+    // =========================================================
+    // PAINEL SUPERIOR COMPACTO (altura reduzida: 94 px)
+    // =========================================================
+    DrawRectangle(0, 0, Settings::WINDOW_WIDTH, 94, Fade(Color{12, 18, 30, 255}, 0.90F));
+    DrawRectangle(0, 92, Settings::WINDOW_WIDTH, 2,  Color{52, 152, 219, 255});
 
-    // 1. Bloco Esquerdo: Pontuação e Distância
-    DrawTextCustom("FUJA DAS CALORIAS", 28.0F, 14.0F, 22.0F, SKYBLUE);
-    DrawTextCustom(TextFormat("PONTOS: %05d", stats.score), 28.0F, 44.0F, 26.0F, RAYWHITE);
-    DrawTextCustom(TextFormat("DISTANCIA: %d m", static_cast<int>(stats.distance)), 28.0F, 78.0F, 19.0F, LIGHTGRAY);
-    DrawTextCustom(TextFormat("RECORDE: %d", stats.highScore), 195.0F, 78.0F, 19.0F, GOLD);
+    // ---- BLOCO ESQUERDO: Pontuação, Distância, Recorde ----
+    DrawTextCustom(TextFormat("PONTOS: %05d", stats.score),    18.0F, 10.0F, 28.0F, RAYWHITE);
+    DrawTextCustom(TextFormat("DIST: %d m",  static_cast<int>(stats.distance)), 18.0F, 48.0F, 18.0F, LIGHTGRAY);
+    DrawTextCustom(TextFormat("REC: %d",     stats.highScore), 180.0F, 48.0F, 18.0F, GOLD);
 
-    // 2. Bloco Central: Barra de Peso/Saúde
-    constexpr float barX = 390.0F;
-    constexpr float barY = 52.0F;
-    constexpr float barWidth = 380.0F;
-    constexpr float barHeight = 28.0F;
-
-    const float weight = player.GetWeight();
-    const char* statusLabel = (weight <= 40.0F) ? "FIT / SAUDAVEL"
-        : (weight <= 70.0F) ? "SOBREPESO" : "OBESIDADE GRAVE!";
+    // ---- BLOCO CENTRAL: Barra de Peso/Saúde ----
+    const float weight      = player.GetWeight();
+    const float displayW    = stats.displayWeight;
     const Color statusColor = GetWeightBarColor(weight);
 
-    DrawTextCustom("PESO / SAUDE:", barX, 22.0F, 18.0F, RAYWHITE);
-    DrawTextCustom(statusLabel, barX + 145.0F, 22.0F, 18.0F, statusColor);
+    constexpr float barX      = 400.0F;
+    constexpr float barY      = 38.0F;
+    constexpr float barWidth  = 350.0F;
+    constexpr float barHeight = 26.0F;
+
+    // Label + ícone de estado
+    DrawTextCustom("PESO / SAUDE:", barX, 12.0F, 16.0F, Color{180, 185, 190, 255});
+    DrawTextCustom(GetWeightIcon(weight), barX + 155.0F, 11.0F, 16.0F, statusColor);
 
     // Fundo da barra
-    DrawRectangle(static_cast<int>(barX), static_cast<int>(barY), static_cast<int>(barWidth), static_cast<int>(barHeight), Color{35, 42, 54, 255});
-    const float progress = std::clamp(weight / Settings::MAX_WEIGHT, 0.0F, 1.0F);
-    DrawRectangle(static_cast<int>(barX), static_cast<int>(barY), static_cast<int>(barWidth * progress), static_cast<int>(barHeight), statusColor);
-    DrawRectangleLines(static_cast<int>(barX), static_cast<int>(barY), static_cast<int>(barWidth), static_cast<int>(barHeight), RAYWHITE);
+    DrawRectangle(
+        static_cast<int>(barX), static_cast<int>(barY),
+        static_cast<int>(barWidth), static_cast<int>(barHeight),
+        Color{25, 30, 42, 255});
 
-    // Marcadores internos da barra (40% e 70%)
-    DrawLine(static_cast<int>(barX + barWidth * 0.40F), static_cast<int>(barY), static_cast<int>(barX + barWidth * 0.40F), static_cast<int>(barY + barHeight), Fade(RAYWHITE, 0.4F));
-    DrawLine(static_cast<int>(barX + barWidth * 0.70F), static_cast<int>(barY), static_cast<int>(barX + barWidth * 0.70F), static_cast<int>(barY + barHeight), Fade(RAYWHITE, 0.4F));
+    // Preenchimento animado (displayWeight → lerp suave no GameManager)
+    const float progress = std::clamp(displayW / Settings::MAX_WEIGHT, 0.0F, 1.0F);
+    DrawRectangle(
+        static_cast<int>(barX), static_cast<int>(barY),
+        static_cast<int>(barWidth * progress), static_cast<int>(barHeight),
+        statusColor);
 
-    // Texto de peso em kg
-    DrawTextCustom(TextFormat("%.1f / %.0f kg", weight, Settings::MAX_WEIGHT), barX + barWidth + 14.0F, barY + 4.0F, 20.0F, RAYWHITE);
+    // Brilho suave no topo da barra
+    DrawRectangle(
+        static_cast<int>(barX), static_cast<int>(barY),
+        static_cast<int>(barWidth * progress), static_cast<int>(barHeight / 3),
+        Fade(RAYWHITE, 0.12F));
 
-    // 3. Bloco Direito: Controles Rápidos e Áudio
-    constexpr float rightX = 890.0F;
-    DrawTextCustom("COMANDOS RAPIDOS:", rightX, 16.0F, 16.0F, SKYBLUE);
-    DrawTextCustom("A/D ou Setas: Mudar Raia", rightX, 38.0F, 15.0F, RAYWHITE);
-    DrawTextCustom("W/ESPACO/CIMA: Pular | S/BAIXO: Agachar", rightX, 58.0F, 15.0F, RAYWHITE);
-    DrawTextCustom(TextFormat("P: Pausar | M: Audio [%s]", stats.isMuted ? "MUDO" : "LIGADO"), rightX, 80.0F, 15.0F, stats.isMuted ? ORANGE : LIME);
+    // Bordas e marcadores internos (40% e 70%)
+    DrawRectangleLines(
+        static_cast<int>(barX), static_cast<int>(barY),
+        static_cast<int>(barWidth), static_cast<int>(barHeight), Fade(RAYWHITE, 0.6F));
+    DrawLine(
+        static_cast<int>(barX + barWidth * 0.40F), static_cast<int>(barY),
+        static_cast<int>(barX + barWidth * 0.40F), static_cast<int>(barY + barHeight), Fade(RAYWHITE, 0.3F));
+    DrawLine(
+        static_cast<int>(barX + barWidth * 0.70F), static_cast<int>(barY),
+        static_cast<int>(barX + barWidth * 0.70F), static_cast<int>(barY + barHeight), Fade(RAYWHITE, 0.3F));
 
-    // Flash de dano vermelho na tela ao colidir com comida ruim
+    // Texto de peso
+    DrawTextCustom(
+        TextFormat("%.1f / %.0f kg", weight, Settings::MAX_WEIGHT),
+        barX + barWidth + 12.0F, barY + 3.0F, 18.0F, RAYWHITE);
+
+    // ---- BLOCO DIREITO: Comandos Rápidos (desaparece após 6 s) ----
+    if (stats.commandsAlpha > 0.01F)
+    {
+        const float a    = stats.commandsAlpha;
+        constexpr float cx = 880.0F;
+        DrawTextCustom("COMANDOS:", cx, 8.0F,  14.0F, Fade(SKYBLUE,   a));
+        DrawTextCustom("A/D ou Setas: Mudar Raia",          cx, 28.0F, 13.0F, Fade(RAYWHITE,  a));
+        DrawTextCustom("W/ESP/CIMA: Pular | S/BAIXO: Agachar", cx, 46.0F, 13.0F, Fade(RAYWHITE,  a));
+        DrawTextCustom(
+            TextFormat("P: Pausa | M: Audio [%s]", stats.isMuted ? "MUDO" : "LIGADO"),
+            cx, 66.0F, 13.0F, Fade(stats.isMuted ? ORANGE : LIME, a));
+    }
+    else
+    {
+        // Dica discreta permanente: só P e M
+        const float a = 0.45F;
+        DrawTextCustom(
+            TextFormat("[P] Pausa  [M] Som: %s", stats.isMuted ? "Mudo" : "On"),
+            880.0F, 36.0F, 13.0F, Fade(LIGHTGRAY, a));
+    }
+
+    // Flash de dano vermelho na tela
     if (stats.collisionFlash > 0.0F)
     {
-        DrawRectangle(0, 0, Settings::WINDOW_WIDTH, Settings::WINDOW_HEIGHT, Fade(RED, stats.collisionFlash * 0.65F));
+        DrawRectangle(0, 0, Settings::WINDOW_WIDTH, Settings::WINDOW_HEIGHT,
+                      Fade(RED, stats.collisionFlash * 0.60F));
     }
 }
 
 void DrawMenu(int highScore, bool isMuted)
 {
-    // Fundo degradê dinâmico
-    DrawRectangleGradientV(0, 0, Settings::WINDOW_WIDTH, Settings::WINDOW_HEIGHT, Color{15, 26, 44, 255}, Color{6, 12, 22, 255});
+    DrawRectangleGradientV(0, 0, Settings::WINDOW_WIDTH, Settings::WINDOW_HEIGHT,
+                           Color{15, 26, 44, 255}, Color{6, 12, 22, 255});
 
-    // Título Principal com Sombra
     DrawCenteredTextCustom("FUJA DAS CALORIAS!", 65.0F + 3.0F, 64.0F, BLACK);
-    DrawCenteredTextCustom("FUJA DAS CALORIAS!", 65.0F, 64.0F, Color{255, 215, 0, 255});
+    DrawCenteredTextCustom("FUJA DAS CALORIAS!", 65.0F,        64.0F, Color{255, 215, 0, 255});
     DrawCenteredTextCustom("Endless Runner 3D de Nutricao e Sobrevivencia", 138.0F, 22.0F, SKYBLUE);
 
-    // Painel Central com Guia do Jogo
     constexpr int boxX = 140;
     constexpr int boxY = 180;
     constexpr int boxW = 1000;
@@ -177,42 +228,52 @@ void DrawMenu(int highScore, bool isMuted)
 
     DrawTextCustom("COMO JOGAR & REGRAS DO JOGO:", boxX + 35.0F, boxY + 20.0F, 22.0F, GOLD);
 
-    DrawTextCustom("[+] COMIDAS BOAS (Maca Verde, Cenoura, Carne Grelhada):", boxX + 35.0F, boxY + 58.0F, 19.0F, Color{46, 204, 113, 255});
-    DrawTextCustom("    Reduzem seu peso corporal e concedem pontos de bonificacao!", boxX + 35.0F, boxY + 84.0F, 17.0F, RAYWHITE);
+    DrawTextCustom("[+] COMIDAS BOAS (Maca Verde, Cenoura, Carne Grelhada):",
+                   boxX + 35.0F, boxY + 58.0F, 19.0F, Color{46, 204, 113, 255});
+    DrawTextCustom("    Reduzem seu peso corporal e concedem pontos de bonificacao!",
+                   boxX + 35.0F, boxY + 84.0F, 17.0F, RAYWHITE);
 
-    DrawTextCustom("[-] FAST-FOODS (Hamburguer, Batata Frita, Refri, Donut):", boxX + 35.0F, boxY + 118.0F, 19.0F, Color{231, 76, 60, 255});
-    DrawTextCustom("    Aumentam seu peso! Ao atingir 100 kg, ocorre colapso por obesidade (Game Over).", boxX + 35.0F, boxY + 144.0F, 17.0F, RAYWHITE);
+    DrawTextCustom("[-] FAST-FOODS (Hamburguer, Batata Frita, Refri, Donut):",
+                   boxX + 35.0F, boxY + 118.0F, 19.0F, Color{231, 76, 60, 255});
+    DrawTextCustom("    Aumentam seu peso! Ao atingir 100 kg, ocorre colapso por obesidade (Game Over).",
+                   boxX + 35.0F, boxY + 144.0F, 17.0F, RAYWHITE);
 
-    DrawTextCustom("[*] MOVIMENTACAO E OBSTACULOS DINAMICOS:", boxX + 35.0F, boxY + 180.0F, 19.0F, YELLOW);
-    DrawTextCustom("    - Trocar de Raia: [A] / [D] ou [Setas Esquerda / Direita]", boxX + 35.0F, boxY + 206.0F, 17.0F, RAYWHITE);
-    DrawTextCustom("    - Pular obstaculos no chao ou pegar frutas altas: [W] / [ESPACO] / [SETA CIMA]", boxX + 35.0F, boxY + 230.0F, 17.0F, RAYWHITE);
-    DrawTextCustom("    - Agachar sob comidas suspensas no ar: [S] ou [SETA BAIXO]", boxX + 35.0F, boxY + 254.0F, 17.0F, RAYWHITE);
+    DrawTextCustom("[*] MOVIMENTACAO E OBSTACULOS DINAMICOS:",
+                   boxX + 35.0F, boxY + 180.0F, 19.0F, YELLOW);
+    DrawTextCustom("    - Trocar de Raia: [A] / [D] ou [Setas Esquerda / Direita]",
+                   boxX + 35.0F, boxY + 206.0F, 17.0F, RAYWHITE);
+    DrawTextCustom("    - Pular obstaculos no chao ou pegar frutas altas: [W] / [ESPACO] / [SETA CIMA]",
+                   boxX + 35.0F, boxY + 230.0F, 17.0F, RAYWHITE);
+    DrawTextCustom("    - Agachar sob comidas suspensas no ar: [S] ou [SETA BAIXO]",
+                   boxX + 35.0F, boxY + 254.0F, 17.0F, RAYWHITE);
 
-    DrawTextCustom(TextFormat("MELHOR RECORDE SALVO: %d PONTOS", highScore), boxX + 35.0F, boxY + 295.0F, 22.0F, GOLD);
-    DrawTextCustom(TextFormat("[M] Audio: %s", isMuted ? "MUTADO" : "LIGADO"), boxX + boxW - 220.0F, boxY + 298.0F, 18.0F, isMuted ? ORANGE : LIME);
+    DrawTextCustom(TextFormat("MELHOR RECORDE SALVO: %d PONTOS", highScore),
+                   boxX + 35.0F, boxY + 295.0F, 22.0F, GOLD);
+    DrawTextCustom(TextFormat("[M] Audio: %s", isMuted ? "MUTADO" : "LIGADO"),
+                   boxX + boxW - 220.0F, boxY + 298.0F, 18.0F, isMuted ? ORANGE : LIME);
 
-    // Botão de Início Piscante
-    const float blink = std::sin(static_cast<float>(GetTime()) * 5.0F);
+    const float blink      = std::sin(static_cast<float>(GetTime()) * 5.0F);
     const Color promptColor = (blink > 0.0F) ? Color{46, 204, 113, 255} : RAYWHITE;
     DrawCenteredTextCustom(">> PRESSIONE [ENTER] PARA INICIAR A CORRIDA <<", 558.0F, 26.0F, promptColor);
-    DrawCenteredTextCustom("Pressione [ESC] para sair da aplicacao", 602.0F, 17.0F, LIGHTGRAY);
+    DrawCenteredTextCustom("Pressione [ESC] para sair da aplicacao",          602.0F, 17.0F, LIGHTGRAY);
 }
 
 void DrawGameOver(const HUDStats& stats)
 {
-    DrawRectangleGradientV(0, 0, Settings::WINDOW_WIDTH, Settings::WINDOW_HEIGHT, Color{38, 12, 14, 255}, Color{12, 4, 6, 255});
+    DrawRectangleGradientV(0, 0, Settings::WINDOW_WIDTH, Settings::WINDOW_HEIGHT,
+                           Color{38, 12, 14, 255}, Color{12, 4, 6, 255});
 
     DrawCenteredTextCustom("FIM DE JOGO!", 55.0F + 3.0F, 66.0F, BLACK);
-    DrawCenteredTextCustom("FIM DE JOGO!", 55.0F, 66.0F, Color{231, 76, 60, 255});
+    DrawCenteredTextCustom("FIM DE JOGO!", 55.0F,        66.0F, Color{231, 76, 60, 255});
 
-    DrawCenteredTextCustom("Causa da Morte: Obesidade extrema decorrente de consumo de ultraprocessados!", 130.0F, 20.0F, RAYWHITE);
+    DrawCenteredTextCustom("Causa da Morte: Obesidade extrema decorrente de consumo de ultraprocessados!",
+                           130.0F, 20.0F, RAYWHITE);
 
     if (stats.isNewRecord)
     {
         DrawCenteredTextCustom("*** NOVO RECORDE ALCANCADO! ***", 168.0F, 26.0F, GOLD);
     }
 
-    // Painel de Estatísticas da Partida
     constexpr int boxX = 260;
     constexpr int boxY = 212;
     constexpr int boxW = 760;
@@ -221,24 +282,21 @@ void DrawGameOver(const HUDStats& stats)
     DrawRectangleLines(boxX, boxY, boxW, boxH, Color{192, 57, 43, 255});
 
     DrawTextCustom("RELATORIO FINAL DA CORRIDA:", boxX + 40.0F, boxY + 24.0F, 22.0F, GOLD);
+    DrawTextCustom(TextFormat("Pontuacao Final: %d pontos",          stats.score),        boxX + 40.0F, boxY + 65.0F,  24.0F, RAYWHITE);
+    DrawTextCustom(TextFormat("Distancia Percorrida: %d metros",     static_cast<int>(stats.distance)), boxX + 40.0F, boxY + 104.0F, 20.0F, LIGHTGRAY);
+    DrawTextCustom(TextFormat("Alimentos Saudaveis Coletados: %d",   stats.goodFoodCount), boxX + 40.0F, boxY + 140.0F, 20.0F, Color{46, 204, 113, 255});
+    DrawTextCustom(TextFormat("Ultraprocessados Ingeridos: %d",      stats.badFoodCount),  boxX + 40.0F, boxY + 176.0F, 20.0F, Color{231, 76,  60, 255});
+    DrawTextCustom(TextFormat("Recorde Salvo: %d pontos",            stats.highScore),     boxX + 40.0F, boxY + 218.0F, 22.0F, GOLD);
 
-    DrawTextCustom(TextFormat("Pontuacao Final: %d pontos", stats.score), boxX + 40.0F, boxY + 65.0F, 24.0F, RAYWHITE);
-    DrawTextCustom(TextFormat("Distancia Percorrida: %d metros", static_cast<int>(stats.distance)), boxX + 40.0F, boxY + 104.0F, 20.0F, LIGHTGRAY);
-    DrawTextCustom(TextFormat("Alimentos Saudaveis Coletados: %d itens", stats.goodFoodCount), boxX + 40.0F, boxY + 140.0F, 20.0F, Color{46, 204, 113, 255});
-    DrawTextCustom(TextFormat("Comidas Ultraprocessadas Ingeridas: %d itens", stats.badFoodCount), boxX + 40.0F, boxY + 176.0F, 20.0F, Color{231, 76, 60, 255});
-    DrawTextCustom(TextFormat("Recorde Salvo: %d pontos", stats.highScore), boxX + 40.0F, boxY + 218.0F, 22.0F, GOLD);
-
-    // Botões de Ação
-    DrawCenteredTextCustom("Pressione [ENTER] para Jogar Novamente", 535.0F, 25.0F, Color{46, 204, 113, 255});
+    DrawCenteredTextCustom("Pressione [ENTER] para Jogar Novamente",    535.0F, 25.0F, Color{46, 204, 113, 255});
     DrawCenteredTextCustom("Pressione [ESC] para Voltar ao Menu Inicial", 575.0F, 18.0F, LIGHTGRAY);
 }
 
 void DrawPause()
 {
     DrawRectangle(0, 0, Settings::WINDOW_WIDTH, Settings::WINDOW_HEIGHT, Fade(BLACK, 0.70F));
-
-    DrawCenteredTextCustom("JOGO PAUSADO", 235.0F, 54.0F, GOLD);
-    DrawCenteredTextCustom("Pressione [P] para Retomar a Partida", 315.0F, 24.0F, RAYWHITE);
+    DrawCenteredTextCustom("JOGO PAUSADO",                     235.0F, 54.0F, GOLD);
+    DrawCenteredTextCustom("Pressione [P] para Retomar",       315.0F, 24.0F, RAYWHITE);
     DrawCenteredTextCustom("Pressione [ENTER] para Reiniciar", 360.0F, 20.0F, LIGHTGRAY);
-    DrawCenteredTextCustom("Pressione [ESC] para Ir ao Menu", 400.0F, 18.0F, LIGHTGRAY);
+    DrawCenteredTextCustom("Pressione [ESC] para Ir ao Menu",  400.0F, 18.0F, LIGHTGRAY);
 }
