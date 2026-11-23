@@ -37,245 +37,272 @@ void DrawTrack(const TrackSpawner& track)
     const float time = static_cast<float>(GetTime());
 
     // ==========================================
-    // 1. CÉU GRADIENTE MANHÃ, SOL E NUVENS
+    // 1. CÉU, SOL RADIANTE E NUVENS ESTILIZADAS
     // ==========================================
 
-    // Sol nascente suave com halos dourados difusos
-    DrawSphere({18.0F, 26.0F, 85.0F}, 5.0F, Color{255, 230, 120, 255});
-    DrawSphere({18.0F, 26.0F, 85.0F}, 7.2F, Fade(Color{255, 215,  80, 255}, 0.35F));
-    DrawSphere({18.0F, 26.0F, 85.0F}, 9.5F, Fade(Color{255, 200, 100, 255}, 0.18F));
+    // Sol estilizado brilhante (amarelo dourado com corona)
+    DrawSphere({24.0F, 30.0F, 86.0F}, 5.5F, Color{255, 230, 80, 255});
+    DrawSphereWires({24.0F, 30.0F, 86.0F}, 6.5F, 10, 10, Color{255, 245, 140, 160});
 
-    // Nuvens pastel rosadas/lavanda flutuando suavemente
-    const float cloudOffset = std::fmod(time * 1.2F, 55.0F);
-    for (float cz = 20.0F; cz <= 80.0F; cz += 28.0F)
+    // Nuvens fofas brancas flutuando
+    const float cloudOffset = std::fmod(time * 1.4F, 60.0F);
+    for (float cz = 15.0F; cz <= 85.0F; cz += 28.0F)
     {
         const float cloudZ = cz - cloudOffset + 10.0F;
-        DrawSphere({-20.0F, 22.0F, cloudZ},        3.0F, Fade(Color{255, 220, 215, 255}, 0.80F));
-        DrawSphere({-17.0F, 23.0F, cloudZ},        4.0F, Fade(Color{255, 230, 225, 255}, 0.85F));
-        DrawSphere({-13.5F, 22.0F, cloudZ},        2.8F, Fade(Color{255, 215, 210, 255}, 0.78F));
-        DrawSphere({ 16.0F, 24.0F, cloudZ + 12.0F}, 3.4F, Fade(Color{235, 220, 255, 255}, 0.80F));
-        DrawSphere({ 20.0F, 25.0F, cloudZ + 12.0F}, 4.2F, Fade(Color{245, 235, 255, 255}, 0.85F));
-        DrawSphere({ 24.0F, 24.0F, cloudZ + 12.0F}, 3.0F, Fade(Color{235, 225, 255, 255}, 0.78F));
+        // Nuvem esquerda
+        DrawSphere({-19.0F, 24.0F, cloudZ},        3.2F, Color{250, 252, 255, 235});
+        DrawSphere({-16.0F, 24.6F, cloudZ},        4.2F, Color{255, 255, 255, 245});
+        DrawSphere({-12.8F, 24.0F, cloudZ},        3.0F, Color{250, 252, 255, 235});
+
+        // Nuvem direita
+        DrawSphere({ 16.0F, 26.0F, cloudZ + 14.0F}, 3.5F, Color{250, 252, 255, 235});
+        DrawSphere({ 19.5F, 26.7F, cloudZ + 14.0F}, 4.4F, Color{255, 255, 255, 245});
+        DrawSphere({ 23.2F, 26.0F, cloudZ + 14.0F}, 3.2F, Color{250, 252, 255, 235});
     }
 
-    // Silhueta metropolitana no horizonte — azul-ardósia suave
-    DrawCube({-32.0F, 10.0F, 96.0F}, 13.0F, 22.0F, 5.0F, Color{ 90, 100, 118, 200});
-    DrawCube({-16.0F, 14.0F, 98.0F}, 11.0F, 30.0F, 5.0F, Color{ 78,  88, 108, 200});
-    DrawCube({  0.0F, 18.0F,100.0F}, 15.0F, 38.0F, 5.0F, Color{ 68,  78,  98, 200});
-    DrawCube({ 18.0F, 12.0F, 97.0F}, 13.0F, 26.0F, 5.0F, Color{ 82,  92, 112, 200});
-    DrawCube({ 34.0F,  9.0F, 95.0F}, 11.0F, 20.0F, 5.0F, Color{ 90, 100, 118, 200});
+    // Silhuetas distantes da metrópole no horizonte (Z = 96 a 100)
+    DrawCube({-32.0F, 12.0F, 96.0F}, 14.0F, 26.0F, 4.0F, Color{120, 165, 210, 255});
+    DrawCube({-16.0F, 16.0F, 98.0F}, 12.0F, 34.0F, 4.0F, Color{110, 155, 200, 255});
+    DrawCube({  0.0F, 20.0F, 100.0F},16.0F, 42.0F, 4.0F, Color{100, 145, 190, 255});
+    DrawCube({ 18.0F, 14.0F, 97.0F}, 14.0F, 30.0F, 4.0F, Color{115, 160, 205, 255});
+    DrawCube({ 34.0F, 11.0F, 95.0F}, 12.0F, 24.0F, 4.0F, Color{120, 165, 210, 255});
 
     // ==========================================
     // 2. SEGMENTOS DA PISTA E CIDADE
     // ==========================================
-    const float halfTrack = Settings::TRACK_WIDTH * 0.5F;
+    const float halfTrack = Settings::TRACK_WIDTH * 0.5F; // 4.1F
+    constexpr float sidewalkWidth = 2.6F;
+    const float sidewalkLeftX  = -halfTrack - (sidewalkWidth * 0.5F);
+    const float sidewalkRightX =  halfTrack + (sidewalkWidth * 0.5F);
 
-    // Paleta harmonizada: tons desaturados/pastel urbano
+    // Paleta de prédios pastel/harmonizada (vibrante e amigável, sem cores primárias agressivas)
+    // Esquerda: Terracota suave, Azul ardósia, Areia quente, Mostarda suave, Rosa antigo
     const Color buildingColorsLeft[] = {
-        Color{188, 140, 110, 255},  // Terracota quente
-        Color{100, 130, 165, 255},  // Azul-aço suave
-        Color{175, 160, 130, 255},  // Bege urbano
-        Color{165, 145,  80, 255},  // Mostarda suave
-        Color{120, 115, 130, 255}   // Lavanda-ardósia
+        Color{225, 138, 108, 255},  // Terracota suave
+        Color{115, 155, 195, 255},  // Azul ardósia
+        Color{230, 198, 142, 255},  // Areia quente
+        Color{155, 188, 138, 255},  // Verde sálvia
+        Color{210, 130, 145, 255}   // Rosa antigo
     };
+
+    // Direita: Menta fresca, Coral suave, Jeans suave, Manteiga quente, Lavanda suave
     const Color buildingColorsRight[] = {
-        Color{130, 155, 115, 255},  // Verde-oliva urbano
-        Color{195, 145, 120, 255},  // Coral desbotado
-        Color{ 90, 115, 145, 255},  // Marinho suave
-        Color{195, 185, 160, 255},  // Areia clara
-        Color{160, 120, 125, 255}   // Rosado desbotado
+        Color{135, 192, 155, 255},  // Menta fresca
+        Color{230, 148, 118, 255},  // Coral suave
+        Color{125, 162, 202, 255},  // Jeans suave
+        Color{238, 208, 138, 255},  // Manteiga quente
+        Color{178, 148, 192, 255}   // Lavanda suave
     };
-    const Color windowFrameColor{55, 50, 45, 255};
 
     for (size_t idx = 0; idx < track.segmentZ.size(); ++idx)
     {
         const float segmentZ = track.segmentZ[idx];
 
-        // --- ASFALTO ---
+        // --- ASFALTO PRINCIPAL DA PISTA ---
         DrawCube(
             {0.0F, -0.16F, segmentZ},
-            Settings::TRACK_WIDTH, 0.32F, Settings::TRACK_SEGMENT_LENGTH,
-            Color{42, 44, 50, 255});
+            Settings::TRACK_WIDTH,
+            0.32F,
+            Settings::TRACK_SEGMENT_LENGTH,
+            Color{44, 48, 56, 255});
 
-        // --- LINHAS TRACEJADAS ---
+        // --- LINHAS TRACEJADAS BRANCAS DIVISÓRIAS DAS 3 RAIAS ---
         for (const float laneMarkerX : {-Settings::LANE_WIDTH * 0.5F, Settings::LANE_WIDTH * 0.5F})
         {
             for (int k = -1; k <= 1; ++k)
             {
                 const float dashZ = segmentZ + static_cast<float>(k) * 3.8F;
-                DrawCube({laneMarkerX, 0.02F, dashZ}, 0.10F, 0.02F, 2.2F, Color{235, 235, 230, 255});
+                DrawCube({laneMarkerX, 0.02F, dashZ}, 0.10F, 0.02F, 2.2F, RAYWHITE);
             }
         }
 
-        // --- MEIO-FIO ZEBRADO ---
+        // --- GUIAS / MEIO-FIO ZEBRADO (Amarelo Ouro e Carvão) ---
         for (int k = -2; k <= 2; ++k)
         {
             const float curbZ = segmentZ + static_cast<float>(k) * 2.4F;
             const Color curbColor = (std::abs(k + static_cast<int>(idx)) % 2 == 0)
-                ? Color{220, 175, 50, 255}
-                : Color{30, 30, 30, 255};
+                ? Color{245, 195, 35, 255}
+                : Color{35, 35, 40, 255};
             DrawCube({-halfTrack, 0.06F, curbZ}, 0.18F, 0.12F, 2.4F, curbColor);
             DrawCube({ halfTrack, 0.06F, curbZ}, 0.18F, 0.12F, 2.4F, curbColor);
         }
 
-        // --- CALÇADAS ---
-        constexpr float sidewalkWidth = 2.6F;
-        const float sidewalkLeftX  = -halfTrack - (sidewalkWidth * 0.5F);
-        const float sidewalkRightX =  halfTrack + (sidewalkWidth * 0.5F);
+        // --- CALÇADAS LATERAIS DE CONCRETO CLARO ---
+        DrawCube({sidewalkLeftX,  -0.06F, segmentZ}, sidewalkWidth, 0.24F, Settings::TRACK_SEGMENT_LENGTH, Color{215, 218, 222, 255});
+        DrawCube({sidewalkRightX, -0.06F, segmentZ}, sidewalkWidth, 0.24F, Settings::TRACK_SEGMENT_LENGTH, Color{215, 218, 222, 255});
 
-        DrawCube({sidewalkLeftX,  -0.06F, segmentZ}, sidewalkWidth, 0.24F, Settings::TRACK_SEGMENT_LENGTH, Color{205, 198, 185, 255});
-        DrawCube({sidewalkRightX, -0.06F, segmentZ}, sidewalkWidth, 0.24F, Settings::TRACK_SEGMENT_LENGTH, Color{205, 198, 185, 255});
-
-        // Juntas de concreto
+        // Ranhuras/juntas das placas de concreto da calçada
         for (int k = -1; k <= 1; ++k)
         {
             const float seamZ = segmentZ + static_cast<float>(k) * 4.0F;
-            DrawCube({sidewalkLeftX,  0.07F, seamZ}, sidewalkWidth, 0.02F, 0.06F, Color{145, 138, 128, 255});
-            DrawCube({sidewalkRightX, 0.07F, seamZ}, sidewalkWidth, 0.02F, 0.06F, Color{145, 138, 128, 255});
+            DrawCube({sidewalkLeftX,  0.07F, seamZ}, sidewalkWidth, 0.02F, 0.06F, Color{165, 168, 175, 255});
+            DrawCube({sidewalkRightX, 0.07F, seamZ}, sidewalkWidth, 0.02F, 0.06F, Color{165, 168, 175, 255});
         }
 
-        // Sombra sutil dos prédios na calçada
-        DrawCube({sidewalkLeftX,  0.001F, segmentZ}, sidewalkWidth * 0.6F, 0.001F, Settings::TRACK_SEGMENT_LENGTH * 0.9F, Fade(BLACK, 0.12F));
-        DrawCube({sidewalkRightX, 0.001F, segmentZ}, sidewalkWidth * 0.6F, 0.001F, Settings::TRACK_SEGMENT_LENGTH * 0.9F, Fade(BLACK, 0.12F));
+        // --- ELEMENTOS URBANOS NAS CALÇADAS (Alternância a cada segmento) ---
+        const int propType = static_cast<int>(idx) % 4;
 
-        // --- ELEMENTOS URBANOS ---
-        if (idx % 2 == 0)
+        if (propType == 0)
         {
-            // Floreira
+            // Floreira charmosa na calçada esquerda
             const Vector3 planterPos{sidewalkLeftX, 0.16F, segmentZ - 2.0F};
-            DrawCube(planterPos, 0.70F, 0.24F, 1.4F, Color{130, 120, 108, 255});
-            DrawCube({planterPos.x, planterPos.y + 0.10F, planterPos.z}, 0.60F, 0.10F, 1.3F, Color{65, 45, 22, 255});
-            DrawSphere({planterPos.x, planterPos.y + 0.25F, planterPos.z - 0.35F}, 0.28F, Color{ 95, 155,  80, 255});
-            DrawSphere({planterPos.x, planterPos.y + 0.28F, planterPos.z},          0.30F, Color{ 80, 140,  68, 255});
-            DrawSphere({planterPos.x, planterPos.y + 0.25F, planterPos.z + 0.35F}, 0.28F, Color{ 95, 155,  80, 255});
-            DrawSphere({planterPos.x, planterPos.y + 0.40F, planterPos.z - 0.2F},  0.08F, Color{230, 115,  90, 255});
-            DrawSphere({planterPos.x, planterPos.y + 0.42F, planterPos.z + 0.1F},  0.08F, Color{245, 215, 100, 255});
-            DrawSphere({planterPos.x, planterPos.y + 0.40F, planterPos.z + 0.3F},  0.08F, Color{200, 150, 210, 255});
+            DrawCube(planterPos, 0.70F, 0.24F, 1.4F, Color{140, 142, 148, 255});
+            DrawCube({planterPos.x, planterPos.y + 0.10F, planterPos.z}, 0.60F, 0.10F, 1.3F, Color{75, 48, 25, 255});
+            // Arbustos verdes
+            DrawSphere({planterPos.x, planterPos.y + 0.25F, planterPos.z - 0.35F}, 0.28F, Color{60, 180, 85, 255});
+            DrawSphere({planterPos.x, planterPos.y + 0.28F, planterPos.z},          0.30F, Color{45, 165, 70, 255});
+            DrawSphere({planterPos.x, planterPos.y + 0.25F, planterPos.z + 0.35F}, 0.28F, Color{60, 180, 85, 255});
+            // Florzinhas
+            DrawSphere({planterPos.x, planterPos.y + 0.40F, planterPos.z - 0.2F}, 0.08F, RED);
+            DrawSphere({planterPos.x, planterPos.y + 0.42F, planterPos.z + 0.1F}, 0.08F, YELLOW);
+            DrawSphere({planterPos.x, planterPos.y + 0.40F, planterPos.z + 0.3F}, 0.08F, Color{255, 105, 180, 255});
 
-            // Poste vintage
+            // Poste de iluminação na calçada direita
             const Vector3 lampBase{sidewalkRightX + 0.4F, 0.0F, segmentZ + 2.0F};
-            DrawCylinder(lampBase, 0.09F, 0.12F, 3.6F, 8, Color{55, 55, 58, 255});
-            DrawCube({lampBase.x - 0.45F, 3.6F, lampBase.z}, 0.9F, 0.09F, 0.09F, Color{55, 55, 58, 255});
-            DrawSphere({lampBase.x - 0.85F, 3.55F, lampBase.z}, 0.20F, Color{255, 240, 180, 255});
-            DrawSphereWires({lampBase.x - 0.85F, 3.55F, lampBase.z}, 0.22F, 6, 6, Fade(Color{255, 215, 100, 255}, 0.6F));
-            DrawCylinder({lampBase.x - 0.85F, 0.01F, lampBase.z}, 1.1F, 1.1F, 0.01F, 12, Fade(Color{255, 240, 160, 255}, 0.10F));
+            DrawCylinder(lampBase, 0.09F, 0.12F, 3.6F, 8, Color{50, 55, 62, 255});
+            DrawCube({lampBase.x - 0.45F, 3.6F, lampBase.z}, 0.9F, 0.09F, 0.09F, Color{50, 55, 62, 255});
+            DrawSphere({lampBase.x - 0.85F, 3.55F, lampBase.z}, 0.20F, Color{255, 248, 190, 255});
+            DrawSphereWires({lampBase.x - 0.85F, 3.55F, lampBase.z}, 0.22F, 6, 6, Fade(GOLD, 0.5F));
+        }
+        else if (propType == 1)
+        {
+            // Árvore frondosa na calçada esquerda com sombra
+            const Vector3 treeBase{sidewalkLeftX - 0.3F, 0.0F, segmentZ + 1.0F};
+            DrawCylinder(treeBase, 0.20F, 0.26F, 2.0F, 8, Color{115, 75, 42, 255});
+            DrawSphere({treeBase.x, 2.5F, treeBase.z}, 1.2F, Color{55, 175, 80, 255});
+            DrawSphere({treeBase.x, 3.3F, treeBase.z}, 0.9F, Color{70, 195, 95, 255});
+            DrawSphere({treeBase.x, 4.0F, treeBase.z}, 0.6F, Color{90, 215, 115, 255});
+            // Sombra suave da árvore no chão
+            DrawCylinder({treeBase.x + 0.2F, 0.065F, treeBase.z}, 0.9F, 0.9F, 0.01F, 12, Fade(BLACK, 0.18F));
+
+            // Hidrante vermelho clássico na calçada direita
+            const Vector3 hydrantPos{sidewalkRightX + 0.5F, 0.0F, segmentZ - 2.5F};
+            DrawCylinder(hydrantPos, 0.14F, 0.16F, 0.65F, 8, Color{225, 45, 40, 255});
+            DrawSphere({hydrantPos.x, 0.65F, hydrantPos.z}, 0.14F, Color{225, 45, 40, 255});
+            DrawCube({hydrantPos.x, 0.40F, hydrantPos.z}, 0.40F, 0.10F, 0.10F, Color{180, 30, 25, 255});
+        }
+        else if (propType == 2)
+        {
+            // Banco de praça de madeira na calçada esquerda
+            const Vector3 benchPos{sidewalkLeftX, 0.20F, segmentZ};
+            DrawCube(benchPos, 0.50F, 0.08F, 1.30F, Color{160, 95, 45, 255}); // Assento
+            DrawCube({benchPos.x - 0.20F, benchPos.y + 0.25F, benchPos.z}, 0.08F, 0.45F, 1.30F, Color{160, 95, 45, 255}); // Encosto
+            DrawCube({benchPos.x, benchPos.y - 0.10F, benchPos.z - 0.55F}, 0.45F, 0.20F, 0.08F, Color{45, 48, 52, 255}); // Perna 1
+            DrawCube({benchPos.x, benchPos.y - 0.10F, benchPos.z + 0.55F}, 0.45F, 0.20F, 0.08F, Color{45, 48, 52, 255}); // Perna 2
+
+            // Poste de iluminação na calçada direita
+            const Vector3 lampBase{sidewalkRightX + 0.4F, 0.0F, segmentZ - 1.5F};
+            DrawCylinder(lampBase, 0.09F, 0.12F, 3.6F, 8, Color{50, 55, 62, 255});
+            DrawCube({lampBase.x - 0.45F, 3.6F, lampBase.z}, 0.9F, 0.09F, 0.09F, Color{50, 55, 62, 255});
+            DrawSphere({lampBase.x - 0.85F, 3.55F, lampBase.z}, 0.20F, Color{255, 248, 190, 255});
+            DrawSphereWires({lampBase.x - 0.85F, 3.55F, lampBase.z}, 0.22F, 6, 6, Fade(GOLD, 0.5F));
         }
         else
         {
-            // Árvore frondosa multicamada
-            const Vector3 treeBase{sidewalkLeftX - 0.3F, 0.0F, segmentZ + 1.0F};
-            DrawCylinder(treeBase, 0.20F, 0.26F, 2.0F, 8, Color{115, 78, 42, 255});
-            DrawSphere({treeBase.x, 2.5F, treeBase.z}, 1.2F, Color{ 85, 140,  70, 255});
-            DrawSphere({treeBase.x, 3.3F, treeBase.z}, 0.9F, Color{ 95, 158,  78, 255});
-            DrawSphere({treeBase.x, 4.0F, treeBase.z}, 0.6F, Color{110, 175,  88, 255});
-            DrawCylinder({treeBase.x + 0.3F, 0.01F, treeBase.z + 0.3F}, 0.8F, 0.8F, 0.01F, 12, Fade(BLACK, 0.14F));
+            // Lixeira urbana metálica na calçada esquerda
+            const Vector3 binPos{sidewalkLeftX - 0.2F, 0.0F, segmentZ - 1.0F};
+            DrawCylinder(binPos, 0.22F, 0.20F, 0.70F, 10, Color{70, 78, 88, 255});
+            DrawCylinder({binPos.x, 0.70F, binPos.z}, 0.24F, 0.22F, 0.08F, 10, Color{45, 52, 60, 255});
 
-            // Hidrante vintage dessaturado
-            const Vector3 hydrantPos{sidewalkRightX + 0.5F, 0.0F, segmentZ - 2.5F};
-            DrawCylinder(hydrantPos, 0.14F, 0.16F, 0.65F, 8, Color{175, 55, 50, 255});
-            DrawSphere({hydrantPos.x, 0.65F, hydrantPos.z}, 0.14F, Color{175, 55, 50, 255});
-            DrawCube({hydrantPos.x, 0.40F, hydrantPos.z}, 0.40F, 0.10F, 0.10F, Color{150, 40, 38, 255});
-            DrawSphere({hydrantPos.x + 0.17F, 0.35F, hydrantPos.z}, 0.05F, Color{200, 200, 195, 255});
-            DrawSphere({hydrantPos.x - 0.17F, 0.35F, hydrantPos.z}, 0.05F, Color{200, 200, 195, 255});
+            // Árvore na calçada direita com sombra
+            const Vector3 treeBase{sidewalkRightX + 0.4F, 0.0F, segmentZ + 1.5F};
+            DrawCylinder(treeBase, 0.20F, 0.26F, 2.0F, 8, Color{115, 75, 42, 255});
+            DrawSphere({treeBase.x, 2.5F, treeBase.z}, 1.2F, Color{55, 175, 80, 255});
+            DrawSphere({treeBase.x, 3.3F, treeBase.z}, 0.9F, Color{70, 195, 95, 255});
+            DrawSphere({treeBase.x, 4.0F, treeBase.z}, 0.6F, Color{90, 215, 115, 255});
+            DrawCylinder({treeBase.x - 0.2F, 0.065F, treeBase.z}, 0.9F, 0.9F, 0.01F, 12, Fade(BLACK, 0.18F));
         }
 
         // ==========================================
-        // 3. PRÉDIOS URBANOS — FACHADAS RICAS
+        // 3. PRÉDIOS URBANOS (Arquitetura Rica)
         // ==========================================
-        const float bldgZ     = segmentZ;
-        const float bldgDepth = Settings::TRACK_SEGMENT_LENGTH - 0.3F;
+        const float bldgZ = segmentZ;
+        const float bldgDepth = Settings::TRACK_SEGMENT_LENGTH - 0.4F;
 
         // --- PRÉDIO ESQUERDO ---
-        const float bldgLeftX      = -halfTrack - sidewalkWidth - 3.5F;
-        const float bldgLeftHeight =  9.0F + static_cast<float>((idx * 4) % 11);
-        const Color bldgLeftColor  = buildingColorsLeft[idx % 5];
+        const float bldgLeftX = -halfTrack - sidewalkWidth - 3.5F;
+        const float bldgLeftHeight = 9.0F + static_cast<float>((idx * 4) % 11);
+        const Color bldgLeftColor = buildingColorsLeft[idx % 5];
 
         DrawCube({bldgLeftX, bldgLeftHeight * 0.5F, bldgZ}, 7.0F, bldgLeftHeight, bldgDepth, bldgLeftColor);
-        // Painel frontal levemente mais claro (parede de frente)
-        DrawCube({bldgLeftX + 3.48F, bldgLeftHeight * 0.5F, bldgZ}, 0.08F, bldgLeftHeight - 0.5F, bldgDepth - 0.4F,
-                 Color{static_cast<unsigned char>(std::min(255, (int)bldgLeftColor.r + 18)),
-                       static_cast<unsigned char>(std::min(255, (int)bldgLeftColor.g + 15)),
-                       static_cast<unsigned char>(std::min(255, (int)bldgLeftColor.b + 12)), 255});
-        DrawCubeWires({bldgLeftX, bldgLeftHeight * 0.5F, bldgZ}, 7.0F, bldgLeftHeight, bldgDepth, Color{35, 32, 28, 200});
+        DrawCubeWires({bldgLeftX, bldgLeftHeight * 0.5F, bldgZ}, 7.0F, bldgLeftHeight, bldgDepth, Fade(BLACK, 0.20F));
 
-        // Janelas com moldura
-        const float winFaceX = bldgLeftX + 3.52F;
-        for (float wy = 2.0F; wy < bldgLeftHeight - 1.5F; wy += 2.2F)
+        // Janelas com moldura (offset seguro de +3.54F para ZERO z-fighting)
+        const float winFaceX = bldgLeftX + 3.54F;
+        for (float wy = 2.2F; wy < bldgLeftHeight - 1.5F; wy += 2.2F)
         {
-            for (float wz = bldgZ - 3.5F; wz <= bldgZ + 3.5F; wz += 2.4F)
+            for (float wz = bldgZ - 3.6F; wz <= bldgZ + 3.6F; wz += 2.4F)
             {
-                DrawCube({winFaceX, wy, wz}, 0.07F, 1.4F, 1.4F, windowFrameColor);
+                // Moldura escura
+                DrawCube({winFaceX, wy, wz}, 0.04F, 1.25F, 1.25F, Color{50, 48, 52, 255});
+                // Vidro da janela (offset extra +0.02F)
                 const bool lit = ((static_cast<int>(wy * 7.0F + wz * 3.0F)) % 3 != 0);
-                DrawCube({winFaceX, wy, wz}, 0.055F, 1.1F, 1.1F,
-                         lit ? Color{255, 238, 160, 255} : Color{130, 165, 200, 220});
+                const Color winColor = lit ? Color{255, 245, 170, 255} : Color{165, 205, 235, 255};
+                DrawCube({winFaceX + 0.02F, wy, wz}, 0.04F, 1.05F, 1.05F, winColor);
             }
         }
-        // Toldo térreo
+
+        // Toldo charmoso no térreo
         if (bldgLeftHeight > 10.0F)
         {
-            DrawCube({bldgLeftX + 3.52F, 1.5F, bldgZ}, 0.14F, 0.12F, 2.0F,
-                     Color{static_cast<unsigned char>(std::min(255, (int)bldgLeftColor.r - 20)),
-                           static_cast<unsigned char>(std::min(255, (int)bldgLeftColor.g - 15)),
-                           static_cast<unsigned char>(std::min(255, (int)bldgLeftColor.b - 10)), 255});
+            const Vector3 awningPos{bldgLeftX + 3.85F, 2.1F, bldgZ};
+            DrawCube(awningPos, 0.75F, 0.12F, 2.8F, (idx % 2 == 0) ? Color{220, 75, 60, 255} : Color{50, 140, 220, 255});
         }
-        // Friso topo + caixa d'água decorativa
-        DrawCube({bldgLeftX, bldgLeftHeight + 0.2F, bldgZ}, 7.4F, 0.4F, bldgDepth + 0.4F, Color{58, 54, 48, 255});
+
+        // Platibanda / Friso no teto
+        DrawCube({bldgLeftX, bldgLeftHeight + 0.2F, bldgZ}, 7.3F, 0.4F, bldgDepth + 0.3F, Color{60, 58, 65, 255});
+
+        // Caixa d'água no teto
         if (idx % 3 == 0)
         {
-            DrawCylinder({bldgLeftX - 1.0F, bldgLeftHeight + 1.0F, bldgZ}, 0.5F, 0.5F, 1.2F, 10, Color{130, 118, 100, 255});
-            DrawCylinder({bldgLeftX - 1.0F, bldgLeftHeight + 2.2F, bldgZ}, 0.52F, 0.42F, 0.3F, 10, Color{100, 90, 78, 255});
+            DrawCylinder({bldgLeftX - 0.8F, bldgLeftHeight + 0.4F, bldgZ}, 0.65F, 0.65F, 1.2F, 10, Color{125, 130, 138, 255});
         }
 
         // --- PRÉDIO DIREITO ---
-        const float bldgRightX      =  halfTrack + sidewalkWidth + 3.5F;
-        const float bldgRightHeight =  8.5F + static_cast<float>(((idx + 2) * 5) % 13);
-        const Color bldgRightColor  = buildingColorsRight[idx % 5];
+        const float bldgRightX = halfTrack + sidewalkWidth + 3.5F;
+        const float bldgRightHeight = 8.5F + static_cast<float>(((idx + 2) * 5) % 13);
+        const Color bldgRightColor = buildingColorsRight[idx % 5];
 
         DrawCube({bldgRightX, bldgRightHeight * 0.5F, bldgZ}, 7.0F, bldgRightHeight, bldgDepth, bldgRightColor);
-        DrawCube({bldgRightX - 3.48F, bldgRightHeight * 0.5F, bldgZ}, 0.08F, bldgRightHeight - 0.5F, bldgDepth - 0.4F,
-                 Color{static_cast<unsigned char>(std::min(255, (int)bldgRightColor.r + 18)),
-                       static_cast<unsigned char>(std::min(255, (int)bldgRightColor.g + 15)),
-                       static_cast<unsigned char>(std::min(255, (int)bldgRightColor.b + 12)), 255});
-        DrawCubeWires({bldgRightX, bldgRightHeight * 0.5F, bldgZ}, 7.0F, bldgRightHeight, bldgDepth, Color{35, 32, 28, 200});
+        DrawCubeWires({bldgRightX, bldgRightHeight * 0.5F, bldgZ}, 7.0F, bldgRightHeight, bldgDepth, Fade(BLACK, 0.20F));
 
-        const float winRightFaceX = bldgRightX - 3.52F;
-        for (float wy = 2.0F; wy < bldgRightHeight - 1.5F; wy += 2.2F)
+        // Janelas direitas (offset seguro de -3.54F)
+        const float winRightFaceX = bldgRightX - 3.54F;
+        for (float wy = 2.2F; wy < bldgRightHeight - 1.5F; wy += 2.2F)
         {
-            for (float wz = bldgZ - 3.5F; wz <= bldgZ + 3.5F; wz += 2.4F)
+            for (float wz = bldgZ - 3.6F; wz <= bldgZ + 3.6F; wz += 2.4F)
             {
-                DrawCube({winRightFaceX, wy, wz}, 0.07F, 1.4F, 1.4F, windowFrameColor);
+                DrawCube({winRightFaceX, wy, wz}, 0.04F, 1.25F, 1.25F, Color{50, 48, 52, 255});
                 const bool lit = ((static_cast<int>(wy * 5.0F + wz * 4.0F)) % 3 == 0);
-                DrawCube({winRightFaceX, wy, wz}, 0.055F, 1.1F, 1.1F,
-                         lit ? Color{255, 238, 160, 255} : Color{115, 150, 185, 220});
+                const Color winColor = lit ? Color{255, 245, 170, 255} : Color{165, 205, 235, 255};
+                DrawCube({winRightFaceX - 0.02F, wy, wz}, 0.04F, 1.05F, 1.05F, winColor);
             }
         }
+
+        // Toldo charmoso no térreo direito
         if (bldgRightHeight > 10.0F)
         {
-            DrawCube({bldgRightX - 3.52F, 1.5F, bldgZ}, 0.14F, 0.12F, 2.0F,
-                     Color{static_cast<unsigned char>(std::min(255, (int)bldgRightColor.r - 20)),
-                           static_cast<unsigned char>(std::min(255, (int)bldgRightColor.g - 15)),
-                           static_cast<unsigned char>(std::min(255, (int)bldgRightColor.b - 10)), 255});
+            const Vector3 awningRightPos{bldgRightX - 3.85F, 2.1F, bldgZ};
+            DrawCube(awningRightPos, 0.75F, 0.12F, 2.8F, (idx % 2 == 0) ? Color{235, 175, 45, 255} : Color{45, 185, 115, 255});
         }
-        DrawCube({bldgRightX, bldgRightHeight + 0.2F, bldgZ}, 7.4F, 0.4F, bldgDepth + 0.4F, Color{58, 54, 48, 255});
 
-        // Outdoor
-        if (idx % 3 == 1)
+        // Platibanda no teto do prédio direito
+        DrawCube({bldgRightX, bldgRightHeight + 0.2F, bldgZ}, 7.3F, 0.4F, bldgDepth + 0.3F, Color{60, 58, 65, 255});
+
+        // Sacada no meio do prédio
+        if (idx % 3 == 1 && bldgRightHeight > 11.0F)
+        {
+            const float balconyY = 5.0F;
+            DrawCube({bldgRightX - 3.8F, balconyY, bldgZ}, 0.7F, 0.12F, 2.2F, Color{85, 88, 95, 255});
+            DrawCube({bldgRightX - 4.1F, balconyY + 0.25F, bldgZ}, 0.08F, 0.40F, 2.2F, Color{65, 68, 75, 255});
+        }
+
+        // Outdoor publicitário em alguns prédios
+        if (idx % 3 == 2)
         {
             const Vector3 signPos{bldgRightX - 0.5F, bldgRightHeight + 1.2F, bldgZ};
-            DrawCube(signPos, 2.6F, 1.7F, 4.6F, Color{40, 38, 35, 255});
-            const Color signGlow = (idx % 2 == 0) ? Color{130, 190, 100, 255} : Color{90, 145, 195, 255};
-            DrawCube({signPos.x - 1.26F, signPos.y, signPos.z}, 0.07F, 1.4F, 4.2F, signGlow);
-        }
-
-        // Sacada / varanda em alguns prédios
-        if (idx % 4 == 2 && bldgRightHeight > 11.0F)
-        {
-            const float balconyY = bldgRightHeight * 0.5F;
-            DrawCube({bldgRightX - 3.65F, balconyY, bldgZ}, 0.5F, 0.1F, 2.2F, Color{80, 75, 68, 255});
-            for (float gz = bldgZ - 0.9F; gz <= bldgZ + 0.9F; gz += 0.5F)
-            {
-                DrawCube({bldgRightX - 3.78F, balconyY + 0.2F, gz}, 0.06F, 0.4F, 0.06F, Color{100, 95, 88, 255});
-            }
+            DrawCube(signPos, 2.5F, 1.6F, 4.5F, Color{45, 48, 54, 255});
+            DrawCube({signPos.x - 1.28F, signPos.y, signPos.z}, 0.06F, 1.4F, 4.2F, (idx % 2 == 0) ? LIME : SKYBLUE);
         }
     }
 }

@@ -57,35 +57,28 @@ void Food::Draw() const
         return;
     }
 
-    // Leve flutuação senoidal para efeito arcade
-    const float bob     = 0.06F * std::sin(rotation * 0.05F);
+    // Leve flutuação senoidal arcade
+    const float bob       = 0.06F * std::sin(rotation * 0.05F);
     const Vector3 drawPos = {position.x, position.y + bob, position.z};
 
-    // 1. Anel / Aura pulsante no chão — maior e pulsante para boas, sinalizador vermelho para ruins
+    // 1. Anel / Aura brilhante no chão abaixo do item (com pulsação)
     const bool isGood = (GetType() == FoodType::Good);
+    const float pulse = 0.92F + 0.08F * std::sin(rotation * 0.08F);
+    const float ringRadius = 0.54F * pulse;
 
     if (isGood)
     {
-        // Anel verde pulsante — escala oscilatória para chamar atenção
-        const float pulse     = 0.90F + 0.10F * std::sin(rotation * 0.095F);
-        const float ringR1    = 0.52F * pulse;
-        const Color auraColor = Color{46, 215, 110, 170};
-        DrawCylinder({drawPos.x, 0.02F, drawPos.z}, ringR1, ringR1, 0.025F, 18, auraColor);
-        DrawCylinderWires({drawPos.x, 0.02F, drawPos.z}, ringR1 * 1.08F, ringR1 * 1.08F, 0.025F, 18,
-                          Fade(Color{90, 240, 140, 255}, 0.6F));
-        // Halo externo mais suave
-        DrawCylinder({drawPos.x, 0.015F, drawPos.z}, ringR1 * 1.22F, ringR1 * 1.22F, 0.012F, 18,
-                     Fade(Color{80, 220, 120, 255}, 0.30F));
+        // Verde vibrante com anel externo reluzente
+        const Color auraColor = Color{46, 204, 113, 175};
+        DrawCylinder({drawPos.x, 0.018F, drawPos.z}, ringRadius, ringRadius, 0.015F, 16, auraColor);
+        DrawCylinderWires({drawPos.x, 0.018F, drawPos.z}, ringRadius, ringRadius, 0.015F, 16, Fade(GREEN, 0.8F));
     }
     else
     {
-        // Anel vermelho/âmbar para alimentos ruins — aviso visual
-        const float pulse     = 0.92F + 0.08F * std::sin(rotation * 0.11F);
-        const float ringR1    = 0.52F * pulse;
-        const Color auraColor = Color{231, 76, 60, 155};
-        DrawCylinder({drawPos.x, 0.02F, drawPos.z}, ringR1, ringR1, 0.025F, 18, auraColor);
-        DrawCylinderWires({drawPos.x, 0.02F, drawPos.z}, ringR1 * 1.06F, ringR1 * 1.06F, 0.025F, 18,
-                          Fade(Color{255, 110, 80, 255}, 0.55F));
+        // Vermelho alerta para comidas calóricas
+        const Color auraColor = Color{231, 76, 60, 175};
+        DrawCylinder({drawPos.x, 0.018F, drawPos.z}, ringRadius, ringRadius, 0.015F, 16, auraColor);
+        DrawCylinderWires({drawPos.x, 0.018F, drawPos.z}, ringRadius, ringRadius, 0.015F, 16, Fade(RED, 0.8F));
     }
 
     // 2. Modelo 3D rotacionado do alimento

@@ -14,20 +14,13 @@ Color GetWeightBarColor(float weight)
 {
     if (weight <= 40.0F)
     {
-        return Color{46, 204, 113, 255};   // Verde esmeralda
+        return Color{46, 204, 113, 255};   // Verde esmeralda vibrante
     }
     if (weight <= 70.0F)
     {
         return Color{241, 196, 15, 255};   // Amarelo sol
     }
-    return Color{231, 76, 60, 255};        // Vermelho perigo
-}
-
-const char* GetWeightIcon(float weight)
-{
-    if (weight <= 40.0F) return "[FIT]";
-    if (weight <= 70.0F) return "[!]";
-    return "[!!]";
+    return Color{231, 76, 60, 255};        // Vermelho alerta
 }
 
 void DrawTextCustom(const char* text, float x, float y, float fontSize, Color color, float spacing = 1.0F)
@@ -103,106 +96,91 @@ void DrawFloatingMessage(const char* text, float x, float y, float size, Color c
         textW = static_cast<float>(MeasureText(text, static_cast<int>(size)));
     }
 
-    const float drawX    = x - (textW * 0.5F);
-    const float padding  = 6.0F;
+    const float drawX = x - (textW * 0.5F);
 
-    // Pílula de fundo para legibilidade máxima
-    DrawRectangle(
-        static_cast<int>(drawX - padding),
-        static_cast<int>(y - padding * 0.5F),
-        static_cast<int>(textW + padding * 2.0F),
-        static_cast<int>(size + padding),
-        Fade(Color{10, 10, 15, 255}, alpha * 0.72F));
-
-    // Sombra forte + texto principal
-    DrawTextCustom(text, drawX + 2.5F, y + 2.5F, size, Fade(BLACK,  alpha * 0.90F));
-    DrawTextCustom(text, drawX,         y,         size, Fade(color,  alpha));
+    // Sombra do texto para alto contraste e legibilidade
+    DrawTextCustom(text, drawX + 2.0F, y + 2.0F, size, Fade(BLACK, alpha * 0.90F));
+    DrawTextCustom(text, drawX,         y,         size, Fade(color, alpha));
 }
 
 void DrawHUD(const Player& player, const HUDStats& stats)
 {
     // =========================================================
-    // PAINEL SUPERIOR COMPACTO (altura reduzida: 94 px)
+    // PAINEL SUPERIOR COMPACTO E TRANSLÚCIDO (altura: 98 px)
     // =========================================================
-    DrawRectangle(0, 0, Settings::WINDOW_WIDTH, 94, Fade(Color{12, 18, 30, 255}, 0.90F));
-    DrawRectangle(0, 92, Settings::WINDOW_WIDTH, 2,  Color{52, 152, 219, 255});
+    DrawRectangle(0, 0, Settings::WINDOW_WIDTH, 98, Fade(Color{16, 24, 38, 255}, 0.88F));
+    DrawRectangle(0, 96, Settings::WINDOW_WIDTH, 2,  Color{52, 152, 219, 255});
 
-    // ---- BLOCO ESQUERDO: Pontuação, Distância, Recorde ----
-    DrawTextCustom(TextFormat("PONTOS: %05d", stats.score),    18.0F, 10.0F, 28.0F, RAYWHITE);
-    DrawTextCustom(TextFormat("DIST: %d m",  static_cast<int>(stats.distance)), 18.0F, 48.0F, 18.0F, LIGHTGRAY);
-    DrawTextCustom(TextFormat("REC: %d",     stats.highScore), 180.0F, 48.0F, 18.0F, GOLD);
+    // 1. Bloco Esquerdo: Pontuação, Distância e Recorde
+    DrawTextCustom(TextFormat("PONTOS: %05d", stats.score), 24.0F, 12.0F, 28.0F, RAYWHITE);
+    DrawTextCustom(TextFormat("DISTANCIA: %d m", static_cast<int>(stats.distance)), 24.0F, 48.0F, 18.0F, LIGHTGRAY);
+    DrawTextCustom(TextFormat("RECORDE: %d", stats.highScore), 185.0F, 48.0F, 18.0F, GOLD);
 
-    // ---- BLOCO CENTRAL: Barra de Peso/Saúde ----
-    const float weight      = player.GetWeight();
-    const float displayW    = stats.displayWeight;
-    const Color statusColor = GetWeightBarColor(weight);
-
-    constexpr float barX      = 400.0F;
-    constexpr float barY      = 38.0F;
-    constexpr float barWidth  = 350.0F;
+    // 2. Bloco Central: Barra de Peso/Saúde
+    constexpr float barX      = 380.0F;
+    constexpr float barY      = 42.0F;
+    constexpr float barWidth  = 360.0F;
     constexpr float barHeight = 26.0F;
 
-    // Label + ícone de estado
-    DrawTextCustom("PESO / SAUDE:", barX, 12.0F, 16.0F, Color{180, 185, 190, 255});
-    DrawTextCustom(GetWeightIcon(weight), barX + 155.0F, 11.0F, 16.0F, statusColor);
+    const float weight      = player.GetWeight();
+    const float displayW    = stats.displayWeight;
+    const char* statusLabel = (weight <= 40.0F) ? "FIT / SAUDAVEL"
+        : (weight <= 70.0F) ? "SOBREPESO" : "OBESIDADE GRAVE!";
+    const Color statusColor = GetWeightBarColor(weight);
+
+    DrawTextCustom("PESO / SAUDE:", barX, 14.0F, 17.0F, RAYWHITE);
+    DrawTextCustom(statusLabel, barX + 140.0F, 14.0F, 17.0F, statusColor);
 
     // Fundo da barra
     DrawRectangle(
         static_cast<int>(barX), static_cast<int>(barY),
         static_cast<int>(barWidth), static_cast<int>(barHeight),
-        Color{25, 30, 42, 255});
+        Color{30, 36, 48, 255});
 
-    // Preenchimento animado (displayWeight → lerp suave no GameManager)
+    // Preenchimento animado suave com lerp
     const float progress = std::clamp(displayW / Settings::MAX_WEIGHT, 0.0F, 1.0F);
     DrawRectangle(
         static_cast<int>(barX), static_cast<int>(barY),
         static_cast<int>(barWidth * progress), static_cast<int>(barHeight),
         statusColor);
 
-    // Brilho suave no topo da barra
-    DrawRectangle(
-        static_cast<int>(barX), static_cast<int>(barY),
-        static_cast<int>(barWidth * progress), static_cast<int>(barHeight / 3),
-        Fade(RAYWHITE, 0.12F));
-
-    // Bordas e marcadores internos (40% e 70%)
+    // Marcadores internos e contorno da barra
     DrawRectangleLines(
         static_cast<int>(barX), static_cast<int>(barY),
-        static_cast<int>(barWidth), static_cast<int>(barHeight), Fade(RAYWHITE, 0.6F));
+        static_cast<int>(barWidth), static_cast<int>(barHeight), RAYWHITE);
     DrawLine(
         static_cast<int>(barX + barWidth * 0.40F), static_cast<int>(barY),
-        static_cast<int>(barX + barWidth * 0.40F), static_cast<int>(barY + barHeight), Fade(RAYWHITE, 0.3F));
+        static_cast<int>(barX + barWidth * 0.40F), static_cast<int>(barY + barHeight), Fade(RAYWHITE, 0.4F));
     DrawLine(
         static_cast<int>(barX + barWidth * 0.70F), static_cast<int>(barY),
-        static_cast<int>(barX + barWidth * 0.70F), static_cast<int>(barY + barHeight), Fade(RAYWHITE, 0.3F));
+        static_cast<int>(barX + barWidth * 0.70F), static_cast<int>(barY + barHeight), Fade(RAYWHITE, 0.4F));
 
-    // Texto de peso
+    // Texto de peso em kg
     DrawTextCustom(
         TextFormat("%.1f / %.0f kg", weight, Settings::MAX_WEIGHT),
-        barX + barWidth + 12.0F, barY + 3.0F, 18.0F, RAYWHITE);
+        barX + barWidth + 14.0F, barY + 3.0F, 19.0F, RAYWHITE);
 
-    // ---- BLOCO DIREITO: Comandos Rápidos (desaparece após 6 s) ----
+    // 3. Bloco Direito: Comandos Rápidos com Fade-out suave
+    constexpr float rightX = 890.0F;
     if (stats.commandsAlpha > 0.01F)
     {
-        const float a    = stats.commandsAlpha;
-        constexpr float cx = 880.0F;
-        DrawTextCustom("COMANDOS:", cx, 8.0F,  14.0F, Fade(SKYBLUE,   a));
-        DrawTextCustom("A/D ou Setas: Mudar Raia",          cx, 28.0F, 13.0F, Fade(RAYWHITE,  a));
-        DrawTextCustom("W/ESP/CIMA: Pular | S/BAIXO: Agachar", cx, 46.0F, 13.0F, Fade(RAYWHITE,  a));
+        const float a = stats.commandsAlpha;
+        DrawTextCustom("COMANDOS RAPIDOS:", rightX, 10.0F, 15.0F, Fade(SKYBLUE, a));
+        DrawTextCustom("A/D ou Setas: Mudar Raia", rightX, 28.0F, 13.0F, Fade(RAYWHITE, a));
+        DrawTextCustom("W/ESPACO/CIMA: Pular | S/BAIXO: Agachar", rightX, 46.0F, 13.0F, Fade(RAYWHITE, a));
         DrawTextCustom(
             TextFormat("P: Pausa | M: Audio [%s]", stats.isMuted ? "MUDO" : "LIGADO"),
-            cx, 66.0F, 13.0F, Fade(stats.isMuted ? ORANGE : LIME, a));
+            rightX, 64.0F, 13.0F, Fade(stats.isMuted ? ORANGE : LIME, a));
     }
     else
     {
-        // Dica discreta permanente: só P e M
-        const float a = 0.45F;
+        // Dica sutil e permanente após sumiço dos comandos
         DrawTextCustom(
-            TextFormat("[P] Pausa  [M] Som: %s", stats.isMuted ? "Mudo" : "On"),
-            880.0F, 36.0F, 13.0F, Fade(LIGHTGRAY, a));
+            TextFormat("[P] Pausa  |  [M] Audio: %s", stats.isMuted ? "MUDO" : "LIGADO"),
+            rightX, 38.0F, 14.0F, Fade(LIGHTGRAY, 0.65F));
     }
 
-    // Flash de dano vermelho na tela
+    // Flash de dano vermelho na tela ao colidir com comida ruim
     if (stats.collisionFlash > 0.0F)
     {
         DrawRectangle(0, 0, Settings::WINDOW_WIDTH, Settings::WINDOW_HEIGHT,

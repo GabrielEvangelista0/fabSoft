@@ -78,12 +78,8 @@ void GameManager::Update(float deltaTime)
 void GameManager::Draw() const
 {
     BeginDrawing();
-
-    // Céu gradiente: azul celeste no topo → laranja-âmbar no horizonte
-    DrawRectangleGradientV(
-        0, 0, Settings::WINDOW_WIDTH, Settings::WINDOW_HEIGHT,
-        Color{135, 185, 230, 255},   // Azul suave/manhã no topo
-        Color{235, 190, 130, 255});  // Âmbar quente no horizonte
+    // Céu azul vibrante e límpido (limpa também o buffer de profundidade Z-buffer)
+    ClearBackground(Color{120, 192, 248, 255});
 
     HUDStats stats{};
     stats.score          = score.GetScore();
@@ -105,24 +101,6 @@ void GameManager::Draw() const
         DrawParticles();
         player.Draw();
         EndMode3D();
-
-        // --- NÉVOA ATMOSFÉRICA NO HORIZONTE (pós-3D, pré-HUD) ---
-        // Gradiente de baixo para cima: haze âmbar/azul do horizonte
-        DrawRectangleGradientV(
-            0,
-            Settings::WINDOW_HEIGHT / 3,
-            Settings::WINDOW_WIDTH,
-            Settings::WINDOW_HEIGHT / 5,
-            Fade(Color{210, 190, 160, 255}, 0.0F),
-            Fade(Color{210, 190, 160, 255}, 0.0F));
-        // Haze leve no ponto de fuga (centro vertical ~40%)
-        DrawRectangleGradientV(
-            0,
-            Settings::WINDOW_HEIGHT / 4,
-            Settings::WINDOW_WIDTH,
-            Settings::WINDOW_HEIGHT / 6,
-            Fade(Color{220, 200, 170, 255}, 0.0F),
-            Fade(Color{220, 200, 170, 255}, 0.22F));
 
         DrawHUD(player, stats);
         DrawPopups();
@@ -157,7 +135,7 @@ void GameManager::StartGame()
     isNewRecord    = false;
     wasJumping     = false;
     footstepTimer  = 0.0F;
-    commandsTimer  = 6.0F;      // Reinicia o timer dos COMANDOS RAPIDOS
+    commandsTimer  = 6.0F;      // Exibe comandos nos primeiros 6s
     displayWeight  = 20.0F;
     state          = GameState::Playing;
 }
@@ -169,8 +147,8 @@ void GameManager::UpdatePlaying(float deltaTime)
     if (!wasJumping && player.IsJumping())
     {
         audio.PlayJump();
-        // Poeira no impulso do salto — 3 partículas cinza leve
-        SpawnParticles({player.GetLaneX(), 0.06F, 0.0F}, Fade(Color{200, 195, 185, 255}, 0.8F), 4, 0.07F);
+        // Poeira no impulso do salto
+        SpawnParticles({player.GetLaneX(), 0.06F, 0.0F}, Fade(LIGHTGRAY, 0.7F), 6, 0.08F);
     }
     wasJumping = player.IsJumping();
 
@@ -182,7 +160,7 @@ void GameManager::UpdatePlaying(float deltaTime)
         {
             footstepTimer = 0.0F;
             const float footOffset = (std::sin(static_cast<float>(GetTime()) * 14.0F) > 0.0F) ? -0.14F : 0.14F;
-            SpawnParticles({player.GetLaneX() + footOffset, 0.06F, -0.12F}, Fade(Color{195, 185, 170, 255}, 0.55F), 3, 0.045F);
+            SpawnParticles({player.GetLaneX() + footOffset, 0.06F, -0.12F}, Fade(LIGHTGRAY, 0.5F), 2, 0.05F);
         }
     }
 
@@ -191,10 +169,10 @@ void GameManager::UpdatePlaying(float deltaTime)
     {
         SpawnParticles(
             {player.GetLaneX() + static_cast<float>(GetRandomValue(-2, 2)) * 0.08F, 1.4F, 0.0F},
-            Color{140, 190, 230, 255}, 1, 0.05F);
+            SKYBLUE, 1, 0.05F);
     }
 
-    // Decaimento do timer dos COMANDOS RAPIDOS
+    // Decaimento do timer dos comandos rápidos
     if (commandsTimer > 0.0F)
     {
         commandsTimer -= deltaTime;
@@ -212,7 +190,7 @@ void GameManager::UpdatePlaying(float deltaTime)
     UpdatePopups(deltaTime);
     collisionFlash = std::max(0.0F, collisionFlash - deltaTime);
 
-    // Peso exibido com lerp suave (juice da barra de vida)
+    // Peso exibido com lerp suave (animação da barra de saúde)
     const float actualWeight = player.GetWeight();
     displayWeight += (actualWeight - displayWeight) * std::min(1.0F, 5.0F * deltaTime);
 
@@ -237,14 +215,13 @@ void GameManager::UpdatePlaying(float deltaTime)
                 score.RegisterGoodFood();
                 audio.PlayCollectGood();
 
-                // Partículas de coleta boa: sparkles verdes, amarelas e brancas
-                SpawnParticles(position, Color{ 60, 220,  90, 255}, 10, 0.10F);
-                SpawnParticles(position, Color{255, 240, 100, 255},  4, 0.07F);
-                SpawnParticles(position, Color{240, 255, 240, 255},  3, 0.06F);
+                // Partículas expressivas: sparkles verdes e amarelos
+                SpawnParticles(position, Color{46, 204, 113, 255}, 14, 0.12F);
+                SpawnParticles(position, Color{255, 235, 100, 255}, 4, 0.08F);
 
                 SpawnPopup(
                     TextFormat("+%d pts  -%.0f kg (%s)", food->GetScoreBonus(), food->GetWeightValue(), food->GetDisplayName()),
-                    Color{46, 220, 110, 255});
+                    Color{46, 204, 113, 255});
             }
             else
             {
@@ -252,14 +229,13 @@ void GameManager::UpdatePlaying(float deltaTime)
                 audio.PlayCollectBad();
                 collisionFlash = Settings::COLLISION_FLASH_DURATION;
 
-                // Partículas de dano: vermelho + laranja (onda de impacto)
-                SpawnParticles(position, Color{240,  70,  50, 255}, 10, 0.11F);
-                SpawnParticles(position, Color{255, 160,  40, 255},  5, 0.08F);
-                SpawnParticles(position, Color{100,  20,  10, 255},  3, 0.07F);
+                // Partículas de impacto: vermelho e laranja
+                SpawnParticles(position, Color{231, 76, 60, 255}, 14, 0.12F);
+                SpawnParticles(position, Color{255, 140, 20, 255}, 4, 0.08F);
 
                 SpawnPopup(
                     TextFormat("+%.0f kg! (%s)", food->GetWeightValue(), food->GetDisplayName()),
-                    Color{235, 70, 50, 255});
+                    Color{231, 76, 60, 255});
             }
 
             std::cout << "[Colisao] Item: " << food->GetDisplayName()
@@ -303,7 +279,7 @@ void GameManager::SpawnParticles(Vector3 position, Color color, int count, float
 {
     for (int i = 0; i < count; ++i)
     {
-        if (particles.size() >= 192)
+        if (particles.size() >= 128)
         {
             break;
         }
@@ -336,7 +312,7 @@ void GameManager::UpdatePopups(float deltaTime)
 {
     for (FloatingText& popup : popups)
     {
-        popup.y       -= 50.0F * deltaTime;
+        popup.y       -= 45.0F * deltaTime;
         popup.lifetime -= deltaTime;
     }
 
@@ -353,8 +329,8 @@ void GameManager::SpawnPopup(const char* text, Color color)
     popups.push_back({
         std::string(text),
         static_cast<float>(Settings::WINDOW_WIDTH) * 0.5F,
-        static_cast<float>(Settings::WINDOW_HEIGHT) * 0.42F,
-        1.2F,
+        static_cast<float>(Settings::WINDOW_HEIGHT) * 0.45F,
+        1.1F,
         color
     });
 }
@@ -363,8 +339,7 @@ void GameManager::DrawPopups() const
 {
     for (const FloatingText& popup : popups)
     {
-        const float alpha = std::clamp(popup.lifetime / 1.2F, 0.0F, 1.0F);
-        // Texto principal maior com sombra forte
-        DrawFloatingMessage(popup.text.c_str(), popup.x, popup.y, 26.0F, popup.color, alpha);
+        const float alpha = std::clamp(popup.lifetime / 1.1F, 0.0F, 1.0F);
+        DrawFloatingMessage(popup.text.c_str(), popup.x, popup.y, 22.0F, popup.color, alpha);
     }
 }
