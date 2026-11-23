@@ -18,19 +18,47 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(raylib)
 
-# Executável Principal do Jogo
-add_executable(FujaDasCalorias
+# Fontes principais agrupadas por responsabilidade.
+set(FUJA_CORE_SOURCES
     src/main.cpp
     src/core/AudioManager.cpp
+    src/core/EffectsSystem.cpp
     src/core/GameManager.cpp
+    src/core/GameStateMachine.cpp
+)
+
+set(FUJA_ENTITY_SOURCES
     src/entities/Food.cpp
     src/entities/Player.cpp
+)
+
+set(FUJA_SYSTEM_SOURCES
     src/systems/DifficultyManager.cpp
     src/systems/SaveSystem.cpp
     src/systems/ScoreSystem.cpp
+)
+
+set(FUJA_UI_SOURCES
     src/ui/HUD.cpp
+)
+
+set(FUJA_WORLD_SOURCES
     src/world/TrackSpawner.cpp
-    src/world/FoodSpawner.cpp
+    src/world/BuildingSpawner.cpp
+    src/world/UrbanProps.cpp
+    src/world/SkyEnvironment.cpp
+    src/world/RoadRenderer.cpp
+    src/world/RoadPropsRenderer.cpp
+    src/world/FoodSystem.cpp
+)
+
+add_executable(FujaDasCalorias)
+target_sources(FujaDasCalorias PRIVATE
+    ${FUJA_CORE_SOURCES}
+    ${FUJA_ENTITY_SOURCES}
+    ${FUJA_SYSTEM_SOURCES}
+    ${FUJA_UI_SOURCES}
+    ${FUJA_WORLD_SOURCES}
 )
 
 target_include_directories(FujaDasCalorias PRIVATE src)
@@ -59,7 +87,7 @@ add_executable(FujaDasCaloriasTests
     src/systems/DifficultyManager.cpp
     src/systems/SaveSystem.cpp
     src/systems/ScoreSystem.cpp
-    src/world/FoodSpawner.cpp
+    src/world/FoodSystem.cpp
 )
 
 target_include_directories(FujaDasCaloriasTests PRIVATE src)

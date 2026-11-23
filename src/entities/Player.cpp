@@ -19,6 +19,7 @@ void Player::Reset()
     prevLaneX     = 0.0F;
     jumpHeight    = 0.0F;
     verticalSpeed = 0.0F;
+    worldZ        = 0.0F;
     runPhase      = 0.0F;
     runSpeed      = Settings::WORLD_SPEED;
     weight        = 20.0F;
@@ -31,6 +32,7 @@ void Player::Reset()
 void Player::Update(float deltaTime, float worldSpeed)
 {
     runSpeed = std::max(0.0F, worldSpeed);
+    worldZ += runSpeed * deltaTime;
 
     if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_A))
     {
@@ -110,7 +112,7 @@ void Player::Draw() const
     const float shadowRadius = 0.42F * girthScale * (1.0F - 0.42F * airAmount);
     const float shadowAlpha = 0.52F * (1.0F - 0.62F * airAmount);
     DrawCylinder(
-        {laneX, 0.015F, 0.0F},
+        {laneX, 0.015F, worldZ},
         shadowRadius,
         shadowRadius,
         0.018F,
@@ -148,7 +150,7 @@ void Player::Draw() const
         : 7.0F + std::clamp((runSpeed - 9.0F) * 0.18F, 0.0F, 4.0F);
 
     rlPushMatrix();
-    rlTranslatef(laneX, jumpHeight + bob + hipPivotY * scale * stretchY, 0.0F);
+    rlTranslatef(laneX, jumpHeight + bob + hipPivotY * scale * stretchY, worldZ);
     rlRotatef(leanAngle, 0.0F, 0.0F, 1.0F);
     rlRotatef(forwardLean, 1.0F, 0.0F, 0.0F);
     rlScalef(girthScale * stretchX, scale * stretchY, girthScale);
@@ -284,6 +286,11 @@ float Player::GetLaneX() const
     return laneX;
 }
 
+float Player::GetWorldZ() const
+{
+    return worldZ;
+}
+
 WeightState Player::GetWeightState() const
 {
     return weightState;
@@ -302,8 +309,8 @@ BoundingBox Player::GetBoundingBox() const
     const float halfDepth = Settings::PLAYER_DEPTH * 0.5F;
 
     return {
-        {laneX - halfWidth, jumpHeight, -halfDepth},
-        {laneX + halfWidth, jumpHeight + height, halfDepth}
+        {laneX - halfWidth, jumpHeight, worldZ - halfDepth},
+        {laneX + halfWidth, jumpHeight + height, worldZ + halfDepth}
     };
 }
 

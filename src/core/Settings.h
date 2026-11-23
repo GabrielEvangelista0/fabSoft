@@ -9,7 +9,7 @@ constexpr int TARGET_FPS = 60;
 constexpr float LANE_WIDTH = 2.2F;
 constexpr float TRACK_WIDTH = 8.2F;
 constexpr float TRACK_SEGMENT_LENGTH = 12.0F;
-constexpr int TRACK_SEGMENT_COUNT = 10;
+constexpr int TRACK_SEGMENT_COUNT = 16;
 
 constexpr float PLAYER_WIDTH = 0.8F;
 constexpr float PLAYER_HEIGHT = 1.8F;

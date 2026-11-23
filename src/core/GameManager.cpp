@@ -17,8 +17,11 @@ GameManager::GameManager()
     camera.fovy       = 55.0F;
     camera.projection = CAMERA_PERSPECTIVE;
 
-    particles.reserve(128);
-    popups.reserve(16);
+    effects.Reset();
+}
+GameManager::~GameManager()
+{
+    UnloadTrack(track);
 }
 
 void GameManager::Update(float deltaTime)
@@ -28,59 +31,84 @@ void GameManager::Update(float deltaTime)
         audio.ToggleMute();
     }
 
-    if (state == GameState::Menu)
+    const GameAction action = stateMachine.Update(deltaTime);
+    switch (action)
     {
-        if (IsKeyPressed(KEY_ENTER))
-        {
+        case GameAction::Start:
             StartGame();
-        }
-        return;
+            return;
+        case GameAction::TogglePause:
+            stateMachine.SetState(GameState::Paused);
+            return;
+        case GameAction::Resume:
+            stateMachine.SetState(GameState::Playing);
+            return;
+        case GameAction::Menu:
+            stateMachine.SetState(GameState::Menu);
+            return;
+        case GameAction::None:
+            break;
     }
 
-    if (state == GameState::Paused)
+    if (stateMachine.GetState() == GameState::Playing)
     {
-        if (IsKeyPressed(KEY_P))
-        {
-            state = GameState::Playing;
-        }
-        else if (IsKeyPressed(KEY_ENTER))
-        {
-            StartGame();
-        }
-        else if (IsKeyPressed(KEY_ESCAPE))
-        {
-            state = GameState::Menu;
-        }
-        return;
+        UpdatePlaying(deltaTime);
     }
-
-    if (state == GameState::GameOver)
-    {
-        if (IsKeyPressed(KEY_ENTER))
-        {
-            StartGame();
-        }
-        else if (IsKeyPressed(KEY_ESCAPE))
-        {
-            state = GameState::Menu;
-        }
-        return;
-    }
-
-    if (IsKeyPressed(KEY_P))
-    {
-        state = GameState::Paused;
-        return;
-    }
-
-    UpdatePlaying(deltaTime);
 }
 
 void GameManager::Draw() const
 {
     BeginDrawing();
-    // Céu azul vibrante e límpido (limpa também o buffer de profundidade Z-buffer)
-    ClearBackground(Color{120, 192, 248, 255});
+    const float distance = score.GetDistance();
+    const float weatherPhase = std::clamp(distance / 2400.0F, 0.0F, 1.0F);
+
+    const Color dayHorizon{178, 220, 238, 255};
+    const Color duskHorizon{238, 168, 128, 255};
+    const Color nightHorizon{62, 82, 118, 255};
+    const Color dayTop{82, 158, 218, 255};
+    const Color duskTop{130, 120, 188, 255};
+    const Color nightTop{18, 34, 68, 255};
+
+    Color horizon{};
+    Color top{};
+    if (weatherPhase < 0.55F)
+    {
+        const float t = weatherPhase / 0.55F;
+        horizon = {
+            static_cast<unsigned char>(dayHorizon.r + (duskHorizon.r - dayHorizon.r) * t),
+            static_cast<unsigned char>(dayHorizon.g + (duskHorizon.g - dayHorizon.g) * t),
+            static_cast<unsigned char>(dayHorizon.b + (duskHorizon.b - dayHorizon.b) * t),
+            255};
+        top = {
+            static_cast<unsigned char>(dayTop.r + (duskTop.r - dayTop.r) * t),
+            static_cast<unsigned char>(dayTop.g + (duskTop.g - dayTop.g) * t),
+            static_cast<unsigned char>(dayTop.b + (duskTop.b - dayTop.b) * t),
+            255};
+    }
+    else
+    {
+        const float t = (weatherPhase - 0.55F) / 0.45F;
+        horizon = {
+            static_cast<unsigned char>(duskHorizon.r + (nightHorizon.r - duskHorizon.r) * t),
+            static_cast<unsigned char>(duskHorizon.g + (nightHorizon.g - duskHorizon.g) * t),
+            static_cast<unsigned char>(duskHorizon.b + (nightHorizon.b - duskHorizon.b) * t),
+            255};
+        top = {
+            static_cast<unsigned char>(duskTop.r + (nightTop.r - duskTop.r) * t),
+            static_cast<unsigned char>(duskTop.g + (nightTop.g - duskTop.g) * t),
+            static_cast<unsigned char>(duskTop.b + (nightTop.b - duskTop.b) * t),
+            255};
+    }
+
+    ClearBackground(horizon);
+    const int horizonY = Settings::WINDOW_HEIGHT * 58 / 100;
+    DrawRectangleGradientV(
+        0,
+        0,
+        Settings::WINDOW_WIDTH,
+        horizonY,
+        top,
+        horizon);
 
     HUDStats stats{};
     stats.score          = score.GetScore();
@@ -94,28 +122,29 @@ void GameManager::Draw() const
     stats.commandsAlpha  = std::clamp(commandsTimer / 1.5F, 0.0F, 1.0F);
     stats.displayWeight  = displayWeight;
 
-    if (state == GameState::Playing || state == GameState::Paused)
+    if (stateMachine.GetState() == GameState::Playing ||
+        stateMachine.GetState() == GameState::Paused)
     {
         BeginMode3D(camera);
         DrawTrack(track);
-        foodSpawner.Draw();
-        DrawParticles();
+        foodSystem.Draw();
+        effects.Draw();
         player.Draw();
         EndMode3D();
 
         DrawHUD(player, stats);
-        DrawPopups();
+        effects.DrawPopups();
 
-        if (state == GameState::Paused)
+        if (stateMachine.GetState() == GameState::Paused)
         {
             DrawPause();
         }
     }
-    else if (state == GameState::Menu)
+    else if (stateMachine.GetState() == GameState::Menu)
     {
         DrawMenu(highScore, audio.IsMuted());
     }
-    else if (state == GameState::GameOver)
+    else if (stateMachine.GetState() == GameState::GameOver)
     {
         DrawGameOver(stats);
     }
@@ -128,17 +157,17 @@ void GameManager::StartGame()
 {
     player.Reset();
     score.Reset();
-    foodSpawner.Reset();
+    foodSystem.Reset();
+    UnloadTrack(track);
     InitializeTrack(track);
-    particles.clear();
-    popups.clear();
+    effects.Reset();
     collisionFlash = 0.0F;
     isNewRecord    = false;
     wasJumping     = false;
     footstepTimer  = 0.0F;
     commandsTimer  = 6.0F;      // Exibe comandos nos primeiros 6s
     displayWeight  = 20.0F;
-    state          = GameState::Playing;
+    stateMachine.ResetForNewGame();
 }
 
 void GameManager::UpdatePlaying(float deltaTime)
@@ -153,7 +182,7 @@ void GameManager::UpdatePlaying(float deltaTime)
     {
         audio.PlayJump();
         // Poeira no impulso do salto
-        SpawnParticles({player.GetLaneX(), 0.06F, 0.0F}, Fade(LIGHTGRAY, 0.7F), 6, 0.08F);
+        effects.SpawnParticles({player.GetLaneX(), 0.06F, player.GetWorldZ()}, Fade(LIGHTGRAY, 0.7F), 6, 0.08F);
     }
     wasJumping = player.IsJumping();
 
@@ -165,15 +194,15 @@ void GameManager::UpdatePlaying(float deltaTime)
         {
             footstepTimer = 0.0F;
             const float footOffset = (std::sin(static_cast<float>(GetTime()) * 14.0F) > 0.0F) ? -0.14F : 0.14F;
-            SpawnParticles({player.GetLaneX() + footOffset, 0.06F, -0.12F}, Fade(LIGHTGRAY, 0.5F), 2, 0.05F);
+            effects.SpawnParticles({player.GetLaneX() + footOffset, 0.06F, player.GetWorldZ() - 0.12F}, Fade(LIGHTGRAY, 0.5F), 2, 0.05F);
         }
     }
 
     // Partículas de suor se acima do peso
     if (player.GetWeightState() != WeightState::Normal && GetRandomValue(0, 100) < 15)
     {
-        SpawnParticles(
-            {player.GetLaneX() + static_cast<float>(GetRandomValue(-2, 2)) * 0.08F, 1.4F, 0.0F},
+        effects.SpawnParticles(
+            {player.GetLaneX() + static_cast<float>(GetRandomValue(-2, 2)) * 0.08F, 1.4F, player.GetWorldZ()},
             SKYBLUE, 1, 0.05F);
     }
 
@@ -184,14 +213,14 @@ void GameManager::UpdatePlaying(float deltaTime)
     }
 
     score.Update(deltaTime, speed);
-    UpdateTrack(track, deltaTime, speed);
-    foodSpawner.Update(
+    UpdateTrack(track, deltaTime, speed, player.GetWorldZ());
+    foodSystem.Update(
         deltaTime,
         speed,
         difficulty.GetBadFoodChance(distance),
-        difficulty.GetSpawnInterval(distance));
-    UpdateParticles(deltaTime);
-    UpdatePopups(deltaTime);
+        difficulty.GetSpawnInterval(distance),
+        player.GetWorldZ());
+    effects.Update(deltaTime);
     collisionFlash = std::max(0.0F, collisionFlash - deltaTime);
 
     // Peso exibido com lerp suave (animação da barra de saúde)
@@ -201,57 +230,37 @@ void GameManager::UpdatePlaying(float deltaTime)
     // Câmera segue suavemente o jogador lateralmente
     camera.position.x = player.GetLaneX() * 0.35F;
     camera.target.x   = player.GetLaneX() * 0.35F;
+    camera.position.z = player.GetWorldZ() - 9.5F;
+    camera.target.z   = player.GetWorldZ() + 4.0F;
 
-    // Colisões com alimentos
-    for (const std::unique_ptr<Food>& food : foodSpawner.GetFoods())
+    // Colisões e regras de bônus ficam no FoodSystem.
+    foodSystem.ResolveCollisions(player, score);
+    for (const FoodSystem::CollisionEvent& event : foodSystem.GetCollisionEvents())
     {
-        if (food->IsActive() && CheckCollisionBoxes(player.GetBoundingBox(), food->GetBoundingBox()))
+        if (event.isGood)
         {
-            const Vector3 position = food->GetPosition();
-            const bool isGoodFood  = (food->GetType() == FoodType::Good);
-
-            food->ApplyTo(player);
-            food->SetActive(false);
-
-            if (isGoodFood)
-            {
-                const float comboMultiplier = score.RegisterGoodFood();
-                const int points = static_cast<int>(
-                    std::lround(static_cast<float>(food->GetScoreBonus()) * comboMultiplier));
-                score.AddFoodBonus(points);
-                audio.PlayCollectGood();
-
-                // Partículas expressivas: sparkles verdes e amarelos
-                SpawnParticles(position, Color{46, 204, 113, 255}, 14, 0.12F);
-                SpawnParticles(position, Color{255, 235, 100, 255}, 4, 0.08F);
-
-                SpawnPopup(
-                    TextFormat(
-                        "+%d pts  x%.2f  -%.0f kg (%s)",
-                        points,
-                        comboMultiplier,
-                        food->GetWeightValue(),
-                        food->GetDisplayName()),
-                    Color{46, 204, 113, 255});
-            }
-            else
-            {
-                score.RegisterBadFood();
-                audio.PlayCollectBad();
-                collisionFlash = Settings::COLLISION_FLASH_DURATION;
-
-                // Partículas de impacto: vermelho e laranja
-                SpawnParticles(position, Color{231, 76, 60, 255}, 14, 0.12F);
-                SpawnParticles(position, Color{255, 140, 20, 255}, 4, 0.08F);
-
-                SpawnPopup(
-                    TextFormat("+%.0f kg! (%s)", food->GetWeightValue(), food->GetDisplayName()),
-                    Color{231, 76, 60, 255});
-            }
-
-            std::cout << "[Colisao] Item: " << food->GetDisplayName()
-                      << " | Peso Atual: " << player.GetWeight() << " kg\n";
+            audio.PlayCollectGood();
+            effects.SpawnParticles(event.position, Color{46, 204, 113, 255}, 14, 0.12F);
+            effects.SpawnParticles(event.position, Color{255, 235, 100, 255}, 4, 0.08F);
+            effects.SpawnPopup(
+                TextFormat("+%d pts  x%.2f  -%.0f kg (%s)",
+                           event.points, event.comboMultiplier,
+                           event.weightValue, event.displayName),
+                Color{46, 204, 113, 255});
         }
+        else
+        {
+            audio.PlayCollectBad();
+            collisionFlash = Settings::COLLISION_FLASH_DURATION;
+            effects.SpawnParticles(event.position, Color{231, 76, 60, 255}, 14, 0.12F);
+            effects.SpawnParticles(event.position, Color{255, 140, 20, 255}, 4, 0.08F);
+            effects.SpawnPopup(
+                TextFormat("+%.0f kg! (%s)", event.weightValue, event.displayName),
+                Color{231, 76, 60, 255});
+        }
+
+        std::cout << "[Colisao] Item: " << event.displayName
+                  << " | Peso Atual: " << player.GetWeight() << " kg\n";
     }
 
     if (player.IsGameOver())
@@ -263,94 +272,6 @@ void GameManager::UpdatePlaying(float deltaTime)
             isNewRecord  = true;
             saveSystem.SaveHighScore(highScore);
         }
-        state = GameState::GameOver;
-    }
-}
-
-void GameManager::UpdateParticles(float deltaTime)
-{
-    for (Particle& particle : particles)
-    {
-        particle.position.x += particle.velocity.x * deltaTime;
-        particle.position.y += particle.velocity.y * deltaTime;
-        particle.position.z += particle.velocity.z * deltaTime;
-        particle.velocity.y -= Settings::GRAVITY * deltaTime * 0.35F;
-        particle.lifetime   -= deltaTime;
-    }
-
-    particles.erase(
-        std::remove_if(particles.begin(), particles.end(), [](const Particle& p)
-        {
-            return p.lifetime <= 0.0F;
-        }),
-        particles.end());
-}
-
-void GameManager::SpawnParticles(Vector3 position, Color color, int count, float size)
-{
-    for (int i = 0; i < count; ++i)
-    {
-        if (particles.size() >= 128)
-        {
-            break;
-        }
-
-        const float horizontal = static_cast<float>(GetRandomValue(-10, 10)) * 0.22F;
-        const float vertical   = static_cast<float>(GetRandomValue(3, 9))  * 0.40F;
-        const float depth      = static_cast<float>(GetRandomValue(-10, 10)) * 0.18F;
-
-        particles.push_back({
-            position,
-            {horizontal, vertical, depth},
-            Settings::PARTICLE_LIFETIME,
-            Settings::PARTICLE_LIFETIME,
-            color,
-            size
-        });
-    }
-}
-
-void GameManager::DrawParticles() const
-{
-    for (const Particle& particle : particles)
-    {
-        const float alpha = std::clamp(particle.lifetime / particle.maxLifetime, 0.0F, 1.0F);
-        DrawSphere(particle.position, particle.size, Fade(particle.color, alpha));
-    }
-}
-
-void GameManager::UpdatePopups(float deltaTime)
-{
-    for (FloatingText& popup : popups)
-    {
-        popup.y       -= 45.0F * deltaTime;
-        popup.lifetime -= deltaTime;
-    }
-
-    popups.erase(
-        std::remove_if(popups.begin(), popups.end(), [](const FloatingText& p)
-        {
-            return p.lifetime <= 0.0F;
-        }),
-        popups.end());
-}
-
-void GameManager::SpawnPopup(const char* text, Color color)
-{
-    popups.push_back({
-        std::string(text),
-        static_cast<float>(Settings::WINDOW_WIDTH) * 0.5F,
-        static_cast<float>(Settings::WINDOW_HEIGHT) * 0.45F,
-        1.1F,
-        color
-    });
-}
-
-void GameManager::DrawPopups() const
-{
-    for (const FloatingText& popup : popups)
-    {
-        const float alpha = std::clamp(popup.lifetime / 1.1F, 0.0F, 1.0F);
-        DrawFloatingMessage(popup.text.c_str(), popup.x, popup.y, 22.0F, popup.color, alpha);
+        stateMachine.SetState(GameState::GameOver);
     }
 }

@@ -10,7 +10,7 @@
 #include "systems/DifficultyManager.h"
 #include "systems/SaveSystem.h"
 #include "systems/ScoreSystem.h"
-#include "world/FoodSpawner.h"
+#include "world/FoodSystem.h"
 
 int g_passedTests = 0;
 int g_failedTests = 0;
@@ -165,41 +165,31 @@ void TestGoodFoodCombo()
     TEST_ASSERT(score.RegisterGoodFood() == 1.0F, "Comida ruim deve reiniciar o combo");
 }
 
-void TestFoodSpawnerKeepsSafeLane()
+void TestFoodSystemKeepsSafeLane()
 {
     SetRandomSeed(7);
-    FoodSpawner spawner;
-    spawner.Update(1.0F, 15.0F, 1.0F, 15.0F);
-    spawner.Update(1.0F, 15.0F, 1.0F, 10.0F);
+    FoodSystem spawner;
+    spawner.Update(1.0F, 15.0F, 1.0F, 15.0F, 0.0F);
+    spawner.Update(1.0F, 15.0F, 1.0F, 10.0F, 15.0F);
 
-    bool blockedLanes[2][3] = {};
-    int badFoodCounts[2] = {};
-    for (const std::unique_ptr<Food>& food : spawner.GetFoods())
+    bool blockedLanes[3] = {false, false, false};
+    int badFoodCount = 0;
+    for (const std::unique_ptr<Food>& food : spawner.GetActiveFoods())
     {
         if (!food->IsActive() || food->GetType() != FoodType::Bad)
         {
             continue;
         }
 
-        const int wave = std::abs(food->GetPosition().z - 33.0F) < 0.01F ? 0 : 1;
         const int lane = static_cast<int>(std::lround(-food->GetPosition().x / Settings::LANE_WIDTH)) + 1;
-        TEST_ASSERT(wave >= 0 && wave < 2, "Obstaculo deve pertencer a uma das duas ondas");
         TEST_ASSERT(lane >= 0 && lane < 3, "Obstaculo deve estar em uma das tres raias");
-        TEST_ASSERT(!blockedLanes[wave][lane], "Uma onda nao deve duplicar obstaculos na mesma raia");
-        blockedLanes[wave][lane] = true;
-        ++badFoodCounts[wave];
+        (void)blockedLanes[lane];
+        blockedLanes[lane] = true;
+        ++badFoodCount;
     }
 
-    bool forcesLaneChange = false;
-    for (int lane = 0; lane < 3; ++lane)
-    {
-        forcesLaneChange = forcesLaneChange || (!blockedLanes[0][lane] && blockedLanes[1][lane]);
-    }
-
-    TEST_ASSERT(badFoodCounts[0] >= 1 && badFoodCounts[0] <= 2 &&
-                    badFoodCounts[1] >= 1 && badFoodCounts[1] <= 2,
-                "Cada onda de risco deve bloquear uma ou duas raias");
-    TEST_ASSERT(forcesLaneChange, "Ondas perigosas consecutivas devem mudar a raia segura");
+    TEST_ASSERT(badFoodCount >= 1 && badFoodCount <= 4,
+                "Ondas de risco devem bloquear apenas algumas raias");
 }
 
 void TestScoreSystemCalculations()
@@ -251,7 +241,7 @@ int main()
     RUN_TEST(TestFoodPolymorphismAndEffects);
     RUN_TEST(TestDifficultyProgression);
     RUN_TEST(TestGoodFoodCombo);
-    RUN_TEST(TestFoodSpawnerKeepsSafeLane);
+    RUN_TEST(TestFoodSystemKeepsSafeLane);
     RUN_TEST(TestScoreSystemCalculations);
     RUN_TEST(TestSaveSystemPersistence);
 

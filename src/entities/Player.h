@@ -29,6 +29,7 @@ public:
 
     float GetWeight() const;
     float GetLaneX() const;
+    float GetWorldZ() const;
     WeightState GetWeightState() const;
     BoundingBox GetBoundingBox() const;
     bool IsGameOver() const;
@@ -41,6 +42,7 @@ private:
     float prevLaneX     = 0.0F;    // Para calcular velocidade lateral
     float jumpHeight    = 0.0F;
     float verticalSpeed = 0.0F;
+    float worldZ        = 0.0F;
     float runPhase      = 0.0F;
     float runSpeed      = 11.0F;
     float weight        = 20.0F;   // Começa saudável (20 kg)

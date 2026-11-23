@@ -1,10 +1,10 @@
-#include "FoodSpawner.h"
+#include "FoodSystem.h"
 
 #include <algorithm>
 
 #include "core/Settings.h"
 
-FoodSpawner::FoodSpawner()
+FoodSystem::FoodSystem()
 {
     foods.reserve(Settings::MAX_FOODS);
 
@@ -22,9 +22,11 @@ FoodSpawner::FoodSpawner()
     }
 }
 
-void FoodSpawner::Update(float deltaTime, float speed, float badFoodChance, float spawnInterval)
+void FoodSystem::Update(float deltaTime, float speed, float badFoodChance, float spawnInterval, float currentWorldZ)
 {
+    worldZ = currentWorldZ;
     const float distanceTravelled = speed * deltaTime;
+    (void)distanceTravelled;
 
     for (const std::unique_ptr<Food>& food : foods)
     {
@@ -32,9 +34,8 @@ void FoodSpawner::Update(float deltaTime, float speed, float badFoodChance, floa
         {
             food->Update(deltaTime);
             Vector3 position = food->GetPosition();
-            position.z -= distanceTravelled;
             food->SetPosition(position);
-            if (position.z < -4.0F)
+            if (position.z < worldZ - 4.0F)
             {
                 food->SetActive(false);
             }
@@ -50,7 +51,7 @@ void FoodSpawner::Update(float deltaTime, float speed, float badFoodChance, floa
     }
 }
 
-void FoodSpawner::Draw() const
+void FoodSystem::Draw() const
 {
     for (const std::unique_ptr<Food>& food : foods)
     {
@@ -58,12 +59,12 @@ void FoodSpawner::Draw() const
     }
 }
 
-std::vector<std::unique_ptr<Food>>& FoodSpawner::GetFoods()
+const std::vector<std::unique_ptr<Food>>& FoodSystem::GetActiveFoods() const
 {
     return foods;
 }
 
-void FoodSpawner::Reset()
+void FoodSystem::Reset()
 {
     for (const std::unique_ptr<Food>& food : foods)
     {
@@ -73,7 +74,49 @@ void FoodSpawner::Reset()
     previousSafeLane = -2;
 }
 
-void FoodSpawner::SpawnFood(float badFoodChance)
+void FoodSystem::ResolveCollisions(Player& player, ScoreSystem& score)
+{
+    collisionEvents.clear();
+    for (const std::unique_ptr<Food>& food : foods)
+    {
+        if (!food->IsActive() ||
+            !CheckCollisionBoxes(player.GetBoundingBox(), food->GetBoundingBox()))
+        {
+            continue;
+        }
+
+        const bool isGoodFood = food->GetType() == FoodType::Good;
+        const Vector3 position = food->GetPosition();
+        food->ApplyTo(player);
+        food->SetActive(false);
+
+        if (isGoodFood)
+        {
+            const float comboMultiplier = score.RegisterGoodFood();
+            const int points = static_cast<int>(
+                static_cast<float>(food->GetScoreBonus()) * comboMultiplier);
+            score.AddFoodBonus(points);
+            collisionEvents.push_back({
+                true, position, food->GetWeightValue(), points,
+                comboMultiplier, food->GetDisplayName()});
+        }
+        else
+        {
+            score.RegisterBadFood();
+            collisionEvents.push_back({
+                false, position, food->GetWeightValue(), 0,
+                1.0F, food->GetDisplayName()});
+        }
+    }
+}
+
+const std::vector<FoodSystem::CollisionEvent>&
+FoodSystem::GetCollisionEvents() const
+{
+    return collisionEvents;
+}
+
+void FoodSystem::SpawnFood(float badFoodChance)
 {
     int lanes[] = {-1, 0, 1};
     const int firstLaneIndex = GetRandomValue(0, 2);
@@ -118,7 +161,7 @@ void FoodSpawner::SpawnFood(float badFoodChance)
     }
 }
 
-Food* FoodSpawner::FindInactiveFood(FoodType type)
+Food* FoodSystem::FindInactiveFood(FoodType type)
 {
     for (const std::unique_ptr<Food>& food : foods)
     {
@@ -130,7 +173,7 @@ Food* FoodSpawner::FindInactiveFood(FoodType type)
     return nullptr;
 }
 
-void FoodSpawner::SpawnFoodInLane(FoodType type, int lane)
+void FoodSystem::SpawnFoodInLane(FoodType type, int lane)
 {
     Food* food = FindInactiveFood(type);
     if (food == nullptr)
@@ -172,7 +215,7 @@ void FoodSpawner::SpawnFoodInLane(FoodType type, int lane)
     food->SetPosition({
         -static_cast<float>(lane) * Settings::LANE_WIDTH,
         altitudeY,
-        48.0F
+        worldZ + 48.0F
     });
     food->SetActive(true);
 }
