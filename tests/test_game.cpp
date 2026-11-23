@@ -10,6 +10,7 @@
 #include "systems/DifficultyManager.h"
 #include "systems/SaveSystem.h"
 #include "systems/ScoreSystem.h"
+#include "world/FoodSpawner.h"
 
 int g_passedTests = 0;
 int g_failedTests = 0;
@@ -123,26 +124,82 @@ void TestDifficultyProgression()
     // Velocidade crescente
     const float speedEarly = diff.GetSpeed(100.0F);
     const float speedMid = diff.GetSpeed(400.0F);
-    const float speedLate = diff.GetSpeed(800.0F);
-    const float speedMax = diff.GetSpeed(1500.0F);
+    const float speedLate = diff.GetSpeed(1600.0F);
+    const float speedMax = diff.GetSpeed(3000.0F);
 
-    TEST_ASSERT(speedEarly == 8.0F, "Velocidade inicial deve ser 8 m/s");
-    TEST_ASSERT(speedMid == 11.0F, "Velocidade aos 400m deve ser 11 m/s");
-    TEST_ASSERT(speedLate == 14.0F, "Velocidade aos 800m deve ser 14 m/s");
-    TEST_ASSERT(speedMax == 17.0F, "Velocidade maxima aos 1500m deve ser 17 m/s");
+    TEST_ASSERT(std::abs(speedEarly - 9.75F) < 0.01F, "Velocidade deve subir gradualmente no inicio");
+    TEST_ASSERT(speedMid == 12.0F, "Velocidade aos 400m deve ser 12 m/s");
+    TEST_ASSERT(speedLate == 18.0F, "Velocidade aos 1600m deve ser 18 m/s");
+    TEST_ASSERT(speedMax == 20.0F, "Velocidade maxima deve ser limitada a 20 m/s");
     TEST_ASSERT(speedEarly < speedMid && speedMid < speedLate && speedLate < speedMax,
                 "Velocidade deve crescer monotonicamente com a distancia");
 
     // Frequência crescente de comidas ruins
     const float chanceEarly = diff.GetBadFoodChance(100.0F);
     const float chanceMid = diff.GetBadFoodChance(400.0F);
-    const float chanceLate = diff.GetBadFoodChance(800.0F);
-    const float chanceMax = diff.GetBadFoodChance(1500.0F);
+    const float chanceLate = diff.GetBadFoodChance(1600.0F);
+    const float chanceMax = diff.GetBadFoodChance(3000.0F);
 
-    TEST_ASSERT(chanceEarly == 0.20F, "Chance inicial de comida ruim deve ser 20%");
-    TEST_ASSERT(chanceMid == 0.40F, "Chance aos 400m deve ser 40%");
-    TEST_ASSERT(chanceLate == 0.60F, "Chance aos 800m deve ser 60%");
-    TEST_ASSERT(chanceMax == 0.80F, "Chance maxima aos 1500m deve ser 80%");
+    TEST_ASSERT(std::abs(chanceEarly - 0.275F) < 0.01F, "Ondas perigosas devem comecar em 25%");
+    TEST_ASSERT(chanceMid == 0.35F, "Chance aos 400m deve ser 35%");
+    TEST_ASSERT(chanceLate == 0.55F, "Chance aos 1600m deve ser 55%");
+    TEST_ASSERT(chanceMax == 0.60F, "Chance maxima deve ser limitada a 60%");
+
+    TEST_ASSERT(diff.GetSpawnInterval(0.0F) == 18.0F, "Ondas iniciais devem ter mais espaco");
+    TEST_ASSERT(diff.GetSpawnInterval(3000.0F) == 12.0F, "Espacamento minimo deve permanecer justo");
+}
+
+void TestGoodFoodCombo()
+{
+    ScoreSystem score;
+    score.Reset();
+
+    TEST_ASSERT(score.RegisterGoodFood() == 1.0F, "Primeira coleta deve valer 1x");
+    TEST_ASSERT(score.RegisterGoodFood() == 1.25F, "Segunda coleta deve aumentar o combo");
+    TEST_ASSERT(score.RegisterGoodFood() == 1.5F, "Combo deve continuar crescendo");
+    TEST_ASSERT(score.RegisterGoodFood() == 1.75F, "Combo deve continuar crescendo");
+    TEST_ASSERT(score.RegisterGoodFood() == 2.0F, "Combo deve atingir 2x");
+    TEST_ASSERT(score.RegisterGoodFood() == 2.0F, "Combo deve ter limite de 2x");
+
+    score.RegisterBadFood();
+    TEST_ASSERT(score.RegisterGoodFood() == 1.0F, "Comida ruim deve reiniciar o combo");
+}
+
+void TestFoodSpawnerKeepsSafeLane()
+{
+    SetRandomSeed(7);
+    FoodSpawner spawner;
+    spawner.Update(1.0F, 15.0F, 1.0F, 15.0F);
+    spawner.Update(1.0F, 15.0F, 1.0F, 10.0F);
+
+    bool blockedLanes[2][3] = {};
+    int badFoodCounts[2] = {};
+    for (const std::unique_ptr<Food>& food : spawner.GetFoods())
+    {
+        if (!food->IsActive() || food->GetType() != FoodType::Bad)
+        {
+            continue;
+        }
+
+        const int wave = std::abs(food->GetPosition().z - 33.0F) < 0.01F ? 0 : 1;
+        const int lane = static_cast<int>(std::lround(-food->GetPosition().x / Settings::LANE_WIDTH)) + 1;
+        TEST_ASSERT(wave >= 0 && wave < 2, "Obstaculo deve pertencer a uma das duas ondas");
+        TEST_ASSERT(lane >= 0 && lane < 3, "Obstaculo deve estar em uma das tres raias");
+        TEST_ASSERT(!blockedLanes[wave][lane], "Uma onda nao deve duplicar obstaculos na mesma raia");
+        blockedLanes[wave][lane] = true;
+        ++badFoodCounts[wave];
+    }
+
+    bool forcesLaneChange = false;
+    for (int lane = 0; lane < 3; ++lane)
+    {
+        forcesLaneChange = forcesLaneChange || (!blockedLanes[0][lane] && blockedLanes[1][lane]);
+    }
+
+    TEST_ASSERT(badFoodCounts[0] >= 1 && badFoodCounts[0] <= 2 &&
+                    badFoodCounts[1] >= 1 && badFoodCounts[1] <= 2,
+                "Cada onda de risco deve bloquear uma ou duas raias");
+    TEST_ASSERT(forcesLaneChange, "Ondas perigosas consecutivas devem mudar a raia segura");
 }
 
 void TestScoreSystemCalculations()
@@ -193,6 +250,8 @@ int main()
     RUN_TEST(TestPlayerGameOverCondition);
     RUN_TEST(TestFoodPolymorphismAndEffects);
     RUN_TEST(TestDifficultyProgression);
+    RUN_TEST(TestGoodFoodCombo);
+    RUN_TEST(TestFoodSpawnerKeepsSafeLane);
     RUN_TEST(TestScoreSystemCalculations);
     RUN_TEST(TestSaveSystemPersistence);
 

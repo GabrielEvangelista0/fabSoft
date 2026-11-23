@@ -21,7 +21,7 @@ class Player
 public:
     Player();
 
-    void Update(float deltaTime);
+    void Update(float deltaTime, float worldSpeed);
     void Draw() const;
     void OnCollideGoodFood(float weightReduction);
     void OnCollideBadFood(float weightIncrease);
@@ -41,7 +41,8 @@ private:
     float prevLaneX     = 0.0F;    // Para calcular velocidade lateral
     float jumpHeight    = 0.0F;
     float verticalSpeed = 0.0F;
-    float runTime       = 0.0F;
+    float runPhase      = 0.0F;
+    float runSpeed      = 11.0F;
     float weight        = 20.0F;   // Começa saudável (20 kg)
     bool  crouching     = false;
     WeightState weightState = WeightState::Normal;

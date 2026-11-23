@@ -11,4 +11,5 @@ class DifficultyManager
 public:
     float GetSpeed(float distance) const;
     float GetBadFoodChance(float distance) const;
+    float GetSpawnInterval(float distance) const;
 };

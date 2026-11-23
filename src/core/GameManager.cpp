@@ -1,6 +1,7 @@
 #include "GameManager.h"
 
 #include <algorithm>
+#include <cmath>
 #include <iostream>
 
 #include "core/Settings.h"
@@ -142,7 +143,11 @@ void GameManager::StartGame()
 
 void GameManager::UpdatePlaying(float deltaTime)
 {
-    player.Update(deltaTime);
+    const float distance = score.GetDistance();
+    const float weightSpeedMultiplier = (player.GetWeightState() == WeightState::Normal) ? 1.0F
+        : (player.GetWeightState() == WeightState::Overweight) ? 0.90F : 0.78F;
+    const float speed = difficulty.GetSpeed(distance) * weightSpeedMultiplier;
+    player.Update(deltaTime, speed);
 
     if (!wasJumping && player.IsJumping())
     {
@@ -178,14 +183,13 @@ void GameManager::UpdatePlaying(float deltaTime)
         commandsTimer -= deltaTime;
     }
 
-    const float distance = score.GetDistance();
-    const float weightSpeedMultiplier = (player.GetWeightState() == WeightState::Normal) ? 1.0F
-        : (player.GetWeightState() == WeightState::Overweight) ? 0.90F : 0.78F;
-    const float speed = difficulty.GetSpeed(distance) * weightSpeedMultiplier;
-
     score.Update(deltaTime, speed);
     UpdateTrack(track, deltaTime, speed);
-    foodSpawner.Update(deltaTime, speed, difficulty.GetBadFoodChance(distance));
+    foodSpawner.Update(
+        deltaTime,
+        speed,
+        difficulty.GetBadFoodChance(distance),
+        difficulty.GetSpawnInterval(distance));
     UpdateParticles(deltaTime);
     UpdatePopups(deltaTime);
     collisionFlash = std::max(0.0F, collisionFlash - deltaTime);
@@ -211,8 +215,10 @@ void GameManager::UpdatePlaying(float deltaTime)
 
             if (isGoodFood)
             {
-                score.AddFoodBonus(food->GetScoreBonus());
-                score.RegisterGoodFood();
+                const float comboMultiplier = score.RegisterGoodFood();
+                const int points = static_cast<int>(
+                    std::lround(static_cast<float>(food->GetScoreBonus()) * comboMultiplier));
+                score.AddFoodBonus(points);
                 audio.PlayCollectGood();
 
                 // Partículas expressivas: sparkles verdes e amarelos
@@ -220,7 +226,12 @@ void GameManager::UpdatePlaying(float deltaTime)
                 SpawnParticles(position, Color{255, 235, 100, 255}, 4, 0.08F);
 
                 SpawnPopup(
-                    TextFormat("+%d pts  -%.0f kg (%s)", food->GetScoreBonus(), food->GetWeightValue(), food->GetDisplayName()),
+                    TextFormat(
+                        "+%d pts  x%.2f  -%.0f kg (%s)",
+                        points,
+                        comboMultiplier,
+                        food->GetWeightValue(),
+                        food->GetDisplayName()),
                     Color{46, 204, 113, 255});
             }
             else

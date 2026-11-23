@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <initializer_list>
+#include <rlgl.h>
 
 #include "core/Settings.h"
 
@@ -17,7 +19,8 @@ void Player::Reset()
     prevLaneX     = 0.0F;
     jumpHeight    = 0.0F;
     verticalSpeed = 0.0F;
-    runTime       = 0.0F;
+    runPhase      = 0.0F;
+    runSpeed      = Settings::WORLD_SPEED;
     weight        = 20.0F;
     crouching     = false;
     weightState   = WeightState::Normal;
@@ -25,8 +28,10 @@ void Player::Reset()
     stretchTimer  = 0.0F;
 }
 
-void Player::Update(float deltaTime)
+void Player::Update(float deltaTime, float worldSpeed)
 {
+    runSpeed = std::max(0.0F, worldSpeed);
+
     if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_A))
     {
         targetLane = std::max(-1, targetLane - 1);
@@ -74,7 +79,9 @@ void Player::Update(float deltaTime)
         stretchTimer -= deltaTime;
     }
 
-    runTime += deltaTime;
+    runPhase = std::fmod(
+        runPhase + deltaTime * (7.5F + runSpeed * 0.5F),
+        6.28318530718F);
 }
 
 void Player::Draw() const
@@ -83,132 +90,176 @@ void Player::Draw() const
         : (weightState == WeightState::Overweight) ? 1.25F : 1.55F;
     const float girthScale = (weightState == WeightState::Normal) ? 1.0F
         : (weightState == WeightState::Overweight) ? 1.3F : 1.7F;
+    const bool airborne = jumpHeight > 0.01F;
+    const float runCycle = std::sin(runPhase);
+    const float bob = (!airborne && !crouching) ? 0.035F * std::sin(runPhase * 2.0F) : 0.0F;
+    const float hipPivotY = crouching ? 0.68F : 0.74F;
 
-    // Squash & Stretch dinâmico
     float stretchX = 1.0F;
     float stretchY = 1.0F;
     if (stretchTimer > 0.0F)
     {
-        const float t = stretchTimer / 0.18F;
-        if (verticalSpeed > 0.0F || jumpHeight > 0.1F)
-        {
-            stretchX = 1.0F - t * 0.10F;
-            stretchY = 1.0F + t * 0.15F;
-        }
-        else
-        {
-            stretchX = 1.0F + t * 0.16F;
-            stretchY = 1.0F - t * 0.12F;
-        }
+        const bool stretching = verticalSpeed > 0.0F || jumpHeight > 0.1F;
+        const float duration = stretching ? 0.18F : 0.12F;
+        const float amount = std::clamp(stretchTimer / duration, 0.0F, 1.0F);
+        stretchX = stretching ? 1.0F - amount * 0.08F : 1.0F + amount * 0.10F;
+        stretchY = stretching ? 1.0F + amount * 0.12F : 1.0F - amount * 0.08F;
     }
 
-    const float bob = (jumpHeight > 0.0F || crouching) ? 0.0F : 0.06F * std::sin(runTime * 14.0F);
-    const float runCycle = std::sin(runTime * 14.0F);
+    const float airAmount = std::clamp(jumpHeight / 1.8F, 0.0F, 1.0F);
+    const float shadowRadius = 0.42F * girthScale * (1.0F - 0.42F * airAmount);
+    const float shadowAlpha = 0.52F * (1.0F - 0.62F * airAmount);
+    DrawCylinder(
+        {laneX, 0.015F, 0.0F},
+        shadowRadius,
+        shadowRadius,
+        0.018F,
+        20,
+        Fade(Color{18, 22, 30, 255}, shadowAlpha));
 
-    const Color shirtColor = (weightState == WeightState::Normal) ? Color{30, 144, 255, 255}
-        : (weightState == WeightState::Overweight) ? Color{240, 160, 20, 255} : Color{220, 35, 35, 255};
-    const Color skinColor   = Color{240, 195, 160, 255};
-    const Color shortsColor = Color{35, 40, 50, 255};
-
-    // --- SOMBRA PROJETADA NO ASFALTO ---
-    // Encolhe suavemente e fica mais tênue quando o jogador pula alto
-    const float shadowRadius = (0.42F * girthScale) * std::max(0.35F, 1.0F - jumpHeight * 0.20F);
-    DrawCylinder({laneX, 0.015F, 0.0F}, shadowRadius, shadowRadius, 0.012F, 14, Fade(BLACK, 0.28F));
-
-    // Deslocamento sutil da cabeça e tronco por inclinação lateral (lean)
-    const float leanOffset = leanAngle * 0.005F;
-
-    // 1. TORSO (Camiseta atlética)
-    const float torsoY      = jumpHeight + (crouching ? 0.38F : 0.95F) * scale * stretchY + bob;
-    const float torsoHeight = (crouching ? 0.40F : 0.70F) * scale * stretchY;
-    const float torsoWidth  = 0.52F * girthScale * stretchX;
-    const float torsoDepth  = 0.40F * girthScale;
-    const float leanedX     = laneX + leanOffset;
-
-    DrawCube({leanedX, torsoY, 0.0F}, torsoWidth, torsoHeight, torsoDepth, shirtColor);
-    DrawCubeWires({leanedX, torsoY, 0.0F}, torsoWidth, torsoHeight, torsoDepth, DARKBLUE);
-
-    // Barriga saliente (Overweight / Obese)
-    if (weightState != WeightState::Normal)
+    Color shirtColor{};
+    Color shirtHighlight{};
+    Color shirtShadow{};
+    if (weightState == WeightState::Normal)
     {
-        const float bellyRadius = (weightState == WeightState::Overweight ? 0.28F : 0.42F) * scale;
-        DrawSphere({leanedX, torsoY - 0.08F * scale, 0.16F * girthScale}, bellyRadius, shirtColor);
+        shirtColor = Color{28, 112, 205, 255};
+        shirtHighlight = Color{90, 180, 245, 255};
+        shirtShadow = Color{18, 65, 130, 255};
     }
-
-    // 2. CABEÇA E FAIXA ESPORTIVA
-    const float headY      = torsoY + (crouching ? 0.28F : 0.52F) * scale * stretchY;
-    const float headZ      = (crouching ? 0.18F : 0.0F);
-    const float headRadius = 0.22F * scale;
-    DrawSphere({leanedX, headY, headZ}, headRadius, skinColor);
-
-    // Faixa vermelha de corrida
-    DrawCylinder({leanedX, headY + 0.04F * scale, headZ}, headRadius * 1.05F, headRadius * 1.05F, 0.06F * scale, 12, RED);
-
-    // Óculos de sol / viseira
-    DrawCube({leanedX, headY, headZ + headRadius * 0.95F}, 0.26F * scale, 0.08F * scale, 0.06F * scale, Color{20, 20, 25, 255});
-
-    // 3. BRAÇOS (Movimento dinâmico de corrida ou pulo)
-    const float armY    = torsoY + (crouching ? 0.05F : 0.15F) * scale;
-    const float armSpan = (torsoWidth * 0.5F) + 0.08F;
-
-    if (jumpHeight > 0.0F)
+    else if (weightState == WeightState::Overweight)
     {
-        // Braços abertos em equilíbrio no ar
-        DrawCube({leanedX - armSpan - 0.1F, armY + 0.15F, 0.0F}, 0.12F, 0.35F, 0.12F, skinColor);
-        DrawCube({leanedX + armSpan + 0.1F, armY + 0.15F, 0.0F}, 0.12F, 0.35F, 0.12F, skinColor);
-    }
-    else if (crouching)
-    {
-        // Braços recolhidos ao agachar
-        DrawCube({leanedX - armSpan, armY - 0.1F, 0.1F}, 0.12F, 0.25F, 0.12F, skinColor);
-        DrawCube({leanedX + armSpan, armY - 0.1F, 0.1F}, 0.12F, 0.25F, 0.12F, skinColor);
+        shirtColor = Color{220, 145, 24, 255};
+        shirtHighlight = Color{255, 198, 78, 255};
+        shirtShadow = Color{145, 84, 12, 255};
     }
     else
     {
-        // Balanço alternado dos braços
-        const float leftArmZ  = -runCycle * 0.22F;
-        const float rightArmZ =  runCycle * 0.22F;
-        DrawCube({leanedX - armSpan, armY,         leftArmZ},         0.12F, 0.40F, 0.12F, shirtColor);
-        DrawCube({leanedX - armSpan, armY - 0.22F, leftArmZ + 0.05F}, 0.10F, 0.18F, 0.10F, skinColor);
-
-        DrawCube({leanedX + armSpan, armY,          rightArmZ},         0.12F, 0.40F, 0.12F, shirtColor);
-        DrawCube({leanedX + armSpan, armY - 0.22F, rightArmZ + 0.05F}, 0.10F, 0.18F, 0.10F, skinColor);
+        shirtColor = Color{195, 38, 42, 255};
+        shirtHighlight = Color{245, 100, 92, 255};
+        shirtShadow = Color{115, 20, 28, 255};
     }
 
-    // 4. PERNAS E TÊNIS
-    const float legSpacing = 0.14F * girthScale;
-    const float legBaseY   = jumpHeight + (crouching ? 0.12F : 0.30F) * scale;
+    const Color skinColor{239, 190, 153, 255};
+    const Color hairColor{60, 42, 32, 255};
+    const Color shortsColor{32, 42, 62, 255};
+    const Color shoeColor{235, 244, 250, 255};
+    const Color soleColor{34, 42, 54, 255};
+    const float forwardLean = crouching ? 22.0F
+        : 7.0F + std::clamp((runSpeed - 9.0F) * 0.18F, 0.0F, 4.0F);
 
-    if (jumpHeight > 0.0F)
+    rlPushMatrix();
+    rlTranslatef(laneX, jumpHeight + bob + hipPivotY * scale * stretchY, 0.0F);
+    rlRotatef(leanAngle, 0.0F, 0.0F, 1.0F);
+    rlRotatef(forwardLean, 1.0F, 0.0F, 0.0F);
+    rlScalef(girthScale * stretchX, scale * stretchY, girthScale);
+    rlTranslatef(0.0F, -hipPivotY, 0.0F);
+
+    const float torsoY = crouching ? 0.28F : 1.04F;
+    const float shoulderY = crouching ? 0.41F : 1.34F;
+    const float headY = crouching ? 0.43F : 1.67F;
+    const float headRadius = crouching ? 0.17F : 0.22F;
+    const float torsoHeight = crouching ? 0.32F : 0.56F;
+    const float upperTorsoHeight = crouching ? 0.25F : 0.34F;
+    const float upperTorsoOffset = crouching ? 0.12F : 0.23F;
+
+    DrawCube({0.0F, torsoY, 0.0F}, 0.58F, torsoHeight, 0.40F, shirtColor);
+    DrawCube({0.0F, torsoY + upperTorsoOffset, 0.0F}, 0.74F, upperTorsoHeight, 0.42F, shirtColor);
+
+    // Jersey yoke, seams and side panels create readable, light-facing planes.
+    const float yokeY = torsoY + (crouching ? 0.24F : 0.39F);
+    DrawCube({0.0F, yokeY, -0.218F}, 0.59F, 0.045F, 0.025F, shirtHighlight);
+    DrawCube({0.0F, torsoY + 0.02F, -0.207F}, 0.055F, torsoHeight * 0.75F, 0.025F, shirtHighlight);
+    DrawCube({-0.263F, torsoY + 0.01F, -0.205F}, 0.045F, torsoHeight * 0.78F, 0.025F, shirtShadow);
+    DrawCube({0.263F, torsoY + 0.01F, -0.205F}, 0.045F, torsoHeight * 0.78F, 0.025F, shirtShadow);
+    DrawCube({0.0F, yokeY + 0.01F, 0.0F}, 0.22F, 0.08F, 0.24F, shirtShadow);
+    DrawCube({0.0F, yokeY + 0.01F, -0.13F}, 0.17F, 0.07F, 0.045F, shirtHighlight);
+
+    const float shortsY = (crouching ? 0.36F : 0.74F);
+    const float shortsHeight = crouching ? 0.23F : 0.30F;
+    DrawCube({0.0F, shortsY, 0.0F}, 0.52F, shortsHeight, 0.36F, shortsColor);
+    DrawCube({0.0F, shortsY + shortsHeight * 0.5F, 0.0F}, 0.53F, 0.045F, 0.37F, Color{54, 68, 91, 255});
+    DrawCube({-0.235F, shortsY, -0.187F}, 0.035F, shortsHeight * 0.75F, 0.025F, Color{66, 177, 225, 255});
+    DrawCube({0.235F, shortsY, -0.187F}, 0.035F, shortsHeight * 0.75F, 0.025F, Color{66, 177, 225, 255});
+
+    const float neckY = headY - (crouching ? 0.13F : 0.27F);
+    DrawCube({0.0F, neckY, 0.0F}, 0.17F, crouching ? 0.18F : 0.20F, 0.18F, skinColor);
+
+    rlPushMatrix();
+    rlTranslatef(0.0F, headY, 0.0F);
+    rlRotatef(runCycle * 2.0F, 1.0F, 0.0F, 0.0F);
+    DrawSphere({0.0F, 0.0F, 0.0F}, headRadius, skinColor);
+    DrawSphere({0.0F, -0.01F, -0.075F}, headRadius * 0.82F, hairColor);
+    DrawSphere({-headRadius * 0.93F, -0.015F, 0.0F}, headRadius * 0.25F, skinColor);
+    DrawSphere({headRadius * 0.93F, -0.015F, 0.0F}, headRadius * 0.25F, skinColor);
+    DrawCylinder({0.0F, 0.045F, 0.0F}, headRadius * 1.04F, headRadius * 1.04F, 0.065F, 14, RED);
+    const float headScale = headRadius / 0.22F;
+    DrawCube({0.0F, 0.085F * headScale, -0.19F * headScale},
+             0.12F * headScale, 0.075F * headScale, 0.12F * headScale, Color{190, 28, 35, 255});
+
+    for (const float side : {-1.0F, 1.0F})
     {
-        // Pernas dobradas no salto
-        DrawCube({laneX - legSpacing, legBaseY + 0.1F, -0.15F}, 0.14F, 0.35F, 0.14F, shortsColor);
-        DrawCube({laneX + legSpacing, legBaseY + 0.1F, -0.15F}, 0.14F, 0.35F, 0.14F, shortsColor);
-        DrawCube({laneX - legSpacing, legBaseY - 0.05F, -0.25F}, 0.15F, 0.10F, 0.24F, RAYWHITE);
-        DrawCube({laneX + legSpacing, legBaseY - 0.05F, -0.25F}, 0.15F, 0.10F, 0.24F, RAYWHITE);
+        rlPushMatrix();
+        rlTranslatef(side * 0.13F, 0.015F, -0.13F);
+        rlRotatef(-runCycle * 10.0F + side * 8.0F, 1.0F, 0.0F, 0.0F);
+        rlRotatef(side * 10.0F, 0.0F, 1.0F, 0.0F);
+        DrawCube({side * 0.045F * headScale, -0.015F * headScale, -0.14F * headScale},
+                 0.075F * headScale, 0.075F * headScale, 0.30F * headScale, RED);
+        rlPopMatrix();
     }
-    else if (crouching)
-    {
-        // Agachamento compacto rente ao solo
-        DrawCube({laneX - legSpacing, legBaseY, 0.0F}, 0.14F, 0.20F, 0.30F, shortsColor);
-        DrawCube({laneX + legSpacing, legBaseY, 0.0F}, 0.14F, 0.20F, 0.30F, shortsColor);
-        DrawCube({laneX - legSpacing, 0.06F, -0.10F}, 0.16F, 0.10F, 0.24F, RAYWHITE);
-        DrawCube({laneX + legSpacing, 0.06F, -0.10F}, 0.16F, 0.10F, 0.24F, RAYWHITE);
-    }
-    else
-    {
-        // Passadas dinâmicas de corrida
-        const float leftLegZ  =  runCycle * 0.25F;
-        const float rightLegZ = -runCycle * 0.25F;
+    rlPopMatrix();
 
-        // Perna esquerda
-        DrawCube({laneX - legSpacing, legBaseY, leftLegZ}, 0.14F, 0.55F, 0.14F, shortsColor);
-        DrawCube({laneX - legSpacing, 0.07F, leftLegZ + 0.05F}, 0.16F, 0.12F, 0.26F, RAYWHITE);
+    for (const float side : {-1.0F, 1.0F})
+    {
+        const float armSwing = airborne ? 0.0F : (crouching ? side * 18.0F : side * runCycle * 34.0F);
+        const float shoulderRoll = airborne ? side * 25.0F : 0.0F;
+        const float armPivotY = shoulderY - 0.02F;
 
-        // Perna direita
-        DrawCube({laneX + legSpacing, legBaseY, rightLegZ}, 0.14F, 0.55F, 0.14F, shortsColor);
-        DrawCube({laneX + legSpacing, 0.07F, rightLegZ + 0.05F}, 0.16F, 0.12F, 0.26F, RAYWHITE);
+        rlPushMatrix();
+        rlTranslatef(side * 0.36F, armPivotY, 0.0F);
+        rlRotatef(shoulderRoll, 0.0F, 0.0F, 1.0F);
+        rlRotatef(armSwing + (airborne ? -12.0F : 0.0F), 1.0F, 0.0F, 0.0F);
+        DrawSphere({0.0F, -0.015F, 0.0F}, 0.12F, shirtColor);
+        DrawCube({0.0F, -0.17F, 0.0F}, 0.19F, 0.34F, 0.19F, shirtColor);
+        DrawCube({0.0F, -0.33F, -0.005F}, 0.17F, 0.045F, 0.18F, shirtHighlight);
+
+        rlTranslatef(0.0F, -0.33F, 0.0F);
+        const float elbowBend = crouching ? -48.0F : (airborne ? -38.0F : -armSwing * 0.35F);
+        rlRotatef(elbowBend, 1.0F, 0.0F, 0.0F);
+        DrawCube({0.0F, -0.14F, 0.0F}, 0.13F, 0.28F, 0.14F, skinColor);
+        rlTranslatef(0.0F, -0.28F, 0.0F);
+        DrawSphere({0.0F, -0.045F, 0.0F}, 0.085F, skinColor);
+        rlPopMatrix();
     }
+
+    for (const float side : {-1.0F, 1.0F})
+    {
+        const float legSwing = airborne ? -side * runCycle * 9.0F
+            : (crouching ? side * 8.0F : -side * runCycle * 32.0F);
+        const float kneeBend = airborne ? 42.0F : (crouching ? 48.0F : std::max(0.0F, legSwing) * 0.45F);
+        const float upperLegHeight = crouching ? 0.23F : 0.32F;
+        const float calfHeight = crouching ? 0.22F : 0.28F;
+        const float legPivotY = crouching ? 0.43F : 0.68F;
+
+        rlPushMatrix();
+        rlTranslatef(side * 0.15F, legPivotY, 0.0F);
+        rlRotatef(legSwing, 1.0F, 0.0F, 0.0F);
+        DrawCube({0.0F, -upperLegHeight * 0.5F, 0.0F}, 0.19F, upperLegHeight, 0.20F, shortsColor);
+        DrawCube({side * 0.055F, -upperLegHeight * 0.5F, -0.105F},
+                 0.025F, upperLegHeight * 0.72F, 0.025F, Color{66, 177, 225, 255});
+
+        rlTranslatef(0.0F, -upperLegHeight, 0.0F);
+        rlRotatef(kneeBend, 1.0F, 0.0F, 0.0F);
+        DrawCube({0.0F, -calfHeight * 0.5F, 0.0F}, 0.14F, calfHeight, 0.15F, skinColor);
+        DrawCube({0.0F, -calfHeight * 0.88F, 0.0F}, 0.15F, 0.05F, 0.16F, Color{38, 53, 78, 255});
+
+        rlTranslatef(0.0F, -calfHeight, 0.0F);
+        DrawCube({0.0F, -0.045F, 0.055F}, 0.25F, 0.13F, 0.36F, shoeColor);
+        DrawCube({0.0F, -0.105F, 0.055F}, 0.26F, 0.035F, 0.37F, soleColor);
+        DrawCube({0.0F, -0.005F, -0.105F}, 0.16F, 0.08F, 0.05F, Color{255, 120, 45, 255});
+        rlPopMatrix();
+    }
+
+    rlPopMatrix();
 }
 
 void Player::OnCollideGoodFood(float weightReduction)

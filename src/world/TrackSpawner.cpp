@@ -229,14 +229,15 @@ void DrawTrack(const TrackSpawner& track)
 
         // Janelas com moldura (offset seguro de +3.54F para ZERO z-fighting)
         const float winFaceX = bldgLeftX + 3.54F;
-        for (float wy = 2.2F; wy < bldgLeftHeight - 1.5F; wy += 2.2F)
+        int rowIndex = 0;
+        for (float wy = 2.2F; wy < bldgLeftHeight - 1.5F; wy += 2.2F, ++rowIndex)
         {
-            for (float wz = bldgZ - 3.6F; wz <= bldgZ + 3.6F; wz += 2.4F)
+            for (int columnIndex = 0; columnIndex < 4; ++columnIndex)
             {
+                const float wz = bldgZ - 3.6F + static_cast<float>(columnIndex) * 2.4F;
                 // Moldura escura
                 DrawCube({winFaceX, wy, wz}, 0.04F, 1.25F, 1.25F, Color{50, 48, 52, 255});
-                // Vidro da janela (offset extra +0.02F)
-                const bool lit = ((static_cast<int>(wy * 7.0F + wz * 3.0F)) % 3 != 0);
+                const bool lit = (static_cast<int>(idx) + rowIndex * 3 + columnIndex * 5) % 3 != 0;
                 const Color winColor = lit ? Color{255, 245, 170, 255} : Color{165, 205, 235, 255};
                 DrawCube({winFaceX + 0.02F, wy, wz}, 0.04F, 1.05F, 1.05F, winColor);
             }
@@ -268,12 +269,14 @@ void DrawTrack(const TrackSpawner& track)
 
         // Janelas direitas (offset seguro de -3.54F)
         const float winRightFaceX = bldgRightX - 3.54F;
-        for (float wy = 2.2F; wy < bldgRightHeight - 1.5F; wy += 2.2F)
+        rowIndex = 0;
+        for (float wy = 2.2F; wy < bldgRightHeight - 1.5F; wy += 2.2F, ++rowIndex)
         {
-            for (float wz = bldgZ - 3.6F; wz <= bldgZ + 3.6F; wz += 2.4F)
+            for (int columnIndex = 0; columnIndex < 4; ++columnIndex)
             {
+                const float wz = bldgZ - 3.6F + static_cast<float>(columnIndex) * 2.4F;
                 DrawCube({winRightFaceX, wy, wz}, 0.04F, 1.25F, 1.25F, Color{50, 48, 52, 255});
-                const bool lit = ((static_cast<int>(wy * 5.0F + wz * 4.0F)) % 3 == 0);
+                const bool lit = (static_cast<int>(idx) + rowIndex * 5 + columnIndex * 3) % 3 == 0;
                 const Color winColor = lit ? Color{255, 245, 170, 255} : Color{165, 205, 235, 255};
                 DrawCube({winRightFaceX - 0.02F, wy, wz}, 0.04F, 1.05F, 1.05F, winColor);
             }

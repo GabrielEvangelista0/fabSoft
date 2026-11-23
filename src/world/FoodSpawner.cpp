@@ -1,5 +1,7 @@
 #include "FoodSpawner.h"
 
+#include <algorithm>
+
 #include "core/Settings.h"
 
 FoodSpawner::FoodSpawner()
@@ -20,7 +22,7 @@ FoodSpawner::FoodSpawner()
     }
 }
 
-void FoodSpawner::Update(float deltaTime, float speed, float badFoodChance)
+void FoodSpawner::Update(float deltaTime, float speed, float badFoodChance, float spawnInterval)
 {
     const float distanceTravelled = speed * deltaTime;
 
@@ -43,8 +45,8 @@ void FoodSpawner::Update(float deltaTime, float speed, float badFoodChance)
     while (distanceUntilNextSpawn <= 0.0F)
     {
         SpawnFood(badFoodChance);
-        // Distância entre spawns decresce levemente com a velocidade para mais ritmo
-        distanceUntilNextSpawn += static_cast<float>(GetRandomValue(10, 16));
+        const float spacingVariation = static_cast<float>(GetRandomValue(-10, 10)) * 0.01F;
+        distanceUntilNextSpawn += std::max(10.0F, spawnInterval * (1.0F + spacingVariation));
     }
 }
 
@@ -68,39 +70,79 @@ void FoodSpawner::Reset()
         food->SetActive(false);
     }
     distanceUntilNextSpawn = 15.0F;
+    previousSafeLane = -2;
 }
 
 void FoodSpawner::SpawnFood(float badFoodChance)
 {
-    const bool spawnBadFood = static_cast<float>(GetRandomValue(0, 100)) < (badFoodChance * 100.0F);
-    const FoodType desiredType = spawnBadFood ? FoodType::Bad : FoodType::Good;
+    int lanes[] = {-1, 0, 1};
+    const int firstLaneIndex = GetRandomValue(0, 2);
+    std::swap(lanes[0], lanes[firstLaneIndex]);
+    badFoodChance = std::clamp(badFoodChance, 0.0F, 1.0F);
 
-    // Procura por itens inativos do tipo desejado
-    std::vector<size_t> availableIndices;
-    for (size_t i = 0; i < foods.size(); ++i)
+    if (GetRandomValue(0, 999) >= static_cast<int>(badFoodChance * 1000.0F))
     {
-        if (!foods[i]->IsActive() && foods[i]->GetType() == desiredType)
+        SpawnFoodInLane(FoodType::Good, lanes[0]);
+        previousSafeLane = -2;
+        return;
+    }
+
+    if (previousSafeLane >= -1 && previousSafeLane <= 1)
+    {
+        for (int i = 1; i < 3; ++i)
         {
-            availableIndices.push_back(i);
+            if (lanes[i] == previousSafeLane)
+            {
+                std::swap(lanes[0], lanes[i]);
+                break;
+            }
         }
     }
 
-    if (availableIndices.empty())
+    SpawnFoodInLane(FoodType::Bad, lanes[0]);
+
+    const float secondObstacleChance = std::clamp((badFoodChance - 0.30F) * 2.0F, 0.0F, 0.70F);
+    const bool spawnSecondObstacle = GetRandomValue(0, 999) <
+        static_cast<int>(secondObstacleChance * 1000.0F);
+    int safeLane = lanes[GetRandomValue(1, 2)];
+    if (spawnSecondObstacle)
+    {
+        SpawnFoodInLane(FoodType::Bad, lanes[1]);
+        safeLane = lanes[2];
+    }
+
+    previousSafeLane = safeLane;
+    if (GetRandomValue(0, 99) < 35)
+    {
+        SpawnFoodInLane(FoodType::Good, safeLane);
+    }
+}
+
+Food* FoodSpawner::FindInactiveFood(FoodType type)
+{
+    for (const std::unique_ptr<Food>& food : foods)
+    {
+        if (!food->IsActive() && food->GetType() == type)
+        {
+            return food.get();
+        }
+    }
+    return nullptr;
+}
+
+void FoodSpawner::SpawnFoodInLane(FoodType type, int lane)
+{
+    Food* food = FindInactiveFood(type);
+    if (food == nullptr)
     {
         return;
     }
 
-    // Seleciona aleatoriamente um item do pool disponível
-    const size_t chosenIdx = availableIndices[static_cast<size_t>(GetRandomValue(0, static_cast<int>(availableIndices.size() - 1)))];
-    Food* food = foods[chosenIdx].get();
-
-    const int lane = GetRandomValue(-1, 1);
     float altitudeY = 0.45F;
     FoodAltitude altitudeType = FoodAltitude::Ground;
 
-    if (desiredType == FoodType::Bad)
+    if (type == FoodType::Bad)
     {
-        // 50% chance de obstáculo no chão (pular/desviar), 50% de obstáculo alto (agachar/desviar)
         if (GetRandomValue(0, 1) == 1)
         {
             altitudeY = 1.55F;
@@ -114,7 +156,6 @@ void FoodSpawner::SpawnFood(float badFoodChance)
     }
     else
     {
-        // 75% no chão, 25% suspenso no ar (recompensa por pulo calculado)
         if (GetRandomValue(0, 3) == 3)
         {
             altitudeY = 1.70F;

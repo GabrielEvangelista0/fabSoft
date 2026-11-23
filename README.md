@@ -32,6 +32,15 @@ O personagem corre automaticamente por uma pista de 3 raias infinitas. O objetiv
 - **Obstáculos Suspensos no Ar**: O jogador deve **AGACHAR** (`S` ou `↓`) ou mudar de raia para passar por baixo.
 - **Frutas Suspensas**: O jogador pode **PULAR** para alcançar itens especiais e obter pontuações altas.
 
+## 📈 Ritmo e balanceamento
+
+- **Aceleração gradual:** a velocidade sobe continuamente de 9 para 20 m/s até 2.400 m, evitando saltos bruscos de dificuldade.
+- **Ondas mais próximas:** o intervalo cai de 18 para 12 m. A variação aleatória é pequena e mantém espaço para reagir mesmo no ritmo máximo.
+- **Leitura justa:** uma onda perigosa ocupa uma ou duas raias, nunca as três. Mais adiante, cresce a chance de duas raias perigosas; algumas ondas oferecem comida saudável na raia livre como recompensa opcional.
+- **Risco x recompensa:** a chance de uma onda perigosa cresce de 25% para, no máximo, 60%. Coletas saudáveis consecutivas aumentam os pontos até 2x; comer um item calórico zera o combo. O peso também reduz a velocidade do mundo nas faixas de sobrepeso e obesidade.
+
+Para próximas iterações, desafios como obras sinalizadas, trechos molhados ou obstáculos móveis podem variar as decisões. A sinalização deve antecipar o tipo de ação (pular/agachar) e manter ao menos uma rota de fuga, sem combinar efeitos novos antes de o jogador reconhecer o padrão.
+
 ---
 
 ## 🎮 Controles

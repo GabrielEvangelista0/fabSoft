@@ -59,6 +59,7 @@ add_executable(FujaDasCaloriasTests
     src/systems/DifficultyManager.cpp
     src/systems/SaveSystem.cpp
     src/systems/ScoreSystem.cpp
+    src/world/FoodSpawner.cpp
 )
 
 target_include_directories(FujaDasCaloriasTests PRIVATE src)

@@ -17,7 +17,7 @@ class FoodSpawner
 public:
     FoodSpawner();
 
-    void Update(float deltaTime, float speed, float badFoodChance);
+    void Update(float deltaTime, float speed, float badFoodChance, float spawnInterval);
     void Draw() const;
     std::vector<std::unique_ptr<Food>>& GetFoods();
     void Reset();
@@ -25,6 +25,9 @@ public:
 private:
     std::vector<std::unique_ptr<Food>> foods;
     float distanceUntilNextSpawn = 15.0F;
+    int previousSafeLane = -2;
 
     void SpawnFood(float badFoodChance);
+    Food* FindInactiveFood(FoodType type);
+    void SpawnFoodInLane(FoodType type, int lane);
 };
